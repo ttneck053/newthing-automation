@@ -1,0 +1,12 @@
+{
+  "name": "ax-contents-studio",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
+    "start": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
+    "test": "node --test tests/api.test.mjs",
+    "build": "bash scripts/build.sh",
+    "validate": "node scripts/validate-artifact.mjs"
+  }
+}
