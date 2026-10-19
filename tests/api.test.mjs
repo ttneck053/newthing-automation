@@ -16,6 +16,39 @@ test('extracts reordered metadata and article, strips scripts and navigation', (
   assert(!article.text.includes('untrusted')); assert(!article.text.includes('제외할 메뉴'));
   assert.deepEqual(parseArticle('<article>사진 없는 기사</article>', 'https://news.example.com').images, []);
 });
+test('news body is selected instead of the header article, preserving nested content and photos', async () => {
+  const story = `<meta property="og:title" content="테스트 기사">
+    <article id="nav-header">로그인 회원가입 기사검색<img src="/logo.png"></article>
+    <main><article class="atlview-grid-body"><article class="fontsize-container">글자 크기 조절</article>
+      <div class="article-body"><article id="article-view-content-div" itemprop="articleBody">
+        <p>${'실제 기사에 포함된 확인 가능한 내용입니다. '.repeat(12)}</p>
+        <article class="quote"><p>중첩 인용문</p></article>
+        <script>const fake = '<article itemprop="articleBody">가짜 본문</article>';</script>
+        <p>중첩 요소 다음에 있는 마지막 문단입니다.</p><img src="/story.jpg">
+      </article></div><article class="article-writer">기자 소개</article>
+    </article></main>`;
+  const article = await extractArticle('https://www.s-econ.kr/news/articleView.html?idxno=1', async () => new Response(story, { headers: { 'content-type': 'text/html' } }));
+  assert.match(article.text, /실제 기사/); assert.match(article.text, /중첩 인용문/); assert.match(article.text, /마지막 문단/);
+  assert(!/로그인|기사검색|글자 크기|기자 소개|가짜 본문/.test(article.text));
+  assert.deepEqual(article.images, ['https://www.s-econ.kr/story.jpg']);
+  let prompt;
+  const handler = createHandler(async (url, options) => {
+    if (url.includes('api.openai.com')) { prompt = JSON.parse(options.body).input; return success(); }
+    return new Response(story, { headers: { 'content-type': 'text/html' } });
+  });
+  const response = await handler(post({ input: 'https://www.s-econ.kr/news/articleView.html?idxno=1', apiKey: 'test-key' }));
+  assert.equal(response.status, 200); assert.match(prompt, /마지막 문단/); assert(!prompt.includes('기사검색'));
+});
+test('div article markers preserve nested divs and ignore surrounding navigation', () => {
+  const story = '<article>기사검색</article><div id="dic_area"><p>첫 문단</p><div><div>사진 설명</div></div><p>마지막 문단</p></div><div>관련 기사 목록</div>';
+  const article = parseArticle(story, 'https://n.example/story');
+  assert.match(article.text, /첫 문단/); assert.match(article.text, /사진 설명/); assert.match(article.text, /마지막 문단/);
+  assert(!/기사검색|관련 기사/.test(article.text));
+});
+test('without body markers the fullest article wins, and CRLF whitespace is normalized', () => {
+  const article = parseArticle('<article>로그인</article><article><p>첫 문단 내용입니다.</p>\r\n\r\n<div>두 번째 문단 내용입니다.</div>\r\n</article>', 'https://n.example/story');
+  assert.equal(article.text, '첫 문단 내용입니다.\n\n두 번째 문단 내용입니다.');
+});
 test('blocks redirects to private hosts before following them', async () => {
   let calls = 0;
   await assert.rejects(extractArticle('https://news.example.com/story', async () => { calls++; return new Response('', { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } }); }));
@@ -37,6 +70,14 @@ test('generates with strict schema, trusted instructions, fixed provider, and no
   const response = await handler(post({ input, apiKey: 'test-key', model: 'gpt-5.4-mini' })); assert.equal(response.status, 200);
   const data = await response.json(); assert.equal(data.content.hook, content.hook); assert.equal(data.content.hashtags[0], '#경제'); assert.equal(data.usage.input_tokens, 1000);
   const body = JSON.parse(request.body); assert.equal(request.url, 'https://api.openai.com/v1/responses'); assert.equal(body.store, false); assert.equal(body.text.format.strict, true); assert.equal(body.max_output_tokens, 4200); assert(body.instructions.includes('신뢰할 수 없는')); assert(!body.instructions.includes(input));
+  assert.equal(request.headers.Authorization, 'Bearer test-key');
+});
+test('personal keys are trimmed and override the server key without appearing in the response', async () => {
+  let authorization;
+  const handler = createHandler(async (_url, options) => { authorization = options.headers.Authorization; return success(); });
+  const response = await handler(post({ input, apiKey: '  personal-test-key  ' }), { OPENAI_API_KEY: 'server-test-key' });
+  assert.equal(response.status, 200); assert.equal(authorization, 'Bearer personal-test-key');
+  assert(!(await response.text()).includes('test-key'));
 });
 test('URL generation extracts source and images before requesting GPT', async () => {
   const handler = createHandler(async url => url.includes('api.openai.com') ? success() : new Response(html, { headers: { 'content-type': 'text/html' } }));
@@ -53,6 +94,21 @@ test('handles invalid keys and exhausted balances without leaking upstream detai
     const response = await handler(post({ input, apiKey: 'test-key' })); assert.equal(response.status, status); assert(!(await response.text()).includes('sensitive'));
   }
 });
+test('key permission, billing, rate, and model failures have distinct actionable messages', async () => {
+  for (const [status, upstreamCode, expectedCode, message] of [
+    [401, 'invalid_api_key', 'INVALID_KEY', /API 키/],
+    [403, 'insufficient_permissions', 'API_PERMISSION', /Responses 쓰기 권한/],
+    [404, 'model_not_found', 'MODEL_UNAVAILABLE', /모델/],
+    [429, 'insufficient_quota', 'API_BILLING_LIMIT', /결제/],
+    [429, 'credit_balance_exhausted', 'API_BILLING_LIMIT', /결제/],
+    [429, 'project_spend_limit_exceeded', 'API_BILLING_LIMIT', /결제/],
+    [429, 'rate_limit_exceeded', 'API_RATE_LIMIT', /요청 속도/]
+  ]) {
+    const handler = createHandler(async () => new Response(JSON.stringify({ error: { code: upstreamCode, message: 'sensitive provider detail' } }), { status }));
+    const response = await handler(post({ input, apiKey: 'test-key' })); const data = await response.json();
+    assert.equal(data.code, expectedCode); assert.match(data.error, message); assert(!data.error.includes('sensitive'));
+  }
+});
 test('refusals, malformed content, and truncation are explicit failures', async () => {
   for (const payload of [
     { status: 'incomplete' },
@@ -65,4 +121,15 @@ test('refusals, malformed content, and truncation are explicit failures', async 
 test('image proxy rejects SVG/HTML active content', async () => {
   const handler = createHandler(async () => new Response('<svg/>', { headers: { 'content-type': 'image/svg+xml' } }));
   const response = await handler(new Request('https://studio.example/api/image?url=https%3A%2F%2Fimg.example%2Fa.svg')); assert.equal(response.status, 400);
+});
+test('Vercel image proxy returns a readable error before exceeding the response limit', async () => {
+  for (const headers of [
+    { 'content-type': 'image/jpeg', 'content-length': '4500000' },
+    { 'content-type': 'image/jpeg' }
+  ]) {
+    const handler = createHandler(async () => new Response(new Uint8Array(4_000_001), { headers }), { imageLimit: 4_000_000 });
+    const response = await handler(new Request('https://studio.example/api/image?url=https%3A%2F%2Fimg.example%2Fphoto.jpg'));
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /파일|커요/);
+  }
 });

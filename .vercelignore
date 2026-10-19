@@ -1,0 +1,9 @@
+.git
+.openai
+.env
+.env.*
+dist
+dist-vercel
+site.tar.gz
+worker/index.js
+tests

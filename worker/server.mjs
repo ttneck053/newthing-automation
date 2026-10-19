@@ -30,17 +30,49 @@ function decode(text = '') {
 function plain(html) {
   return decode(html.replace(/<!--[^]*?-->/g, '').replace(/<(script|style|nav|footer|aside|noscript)\b[^>]*>[^]*?<\/\1\s*>/gi, '')
     .replace(/<\/(p|div|h[1-6]|li|section|article)>|<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, ' '))
-    .replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    .replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function attributes(tag) {
+  const result = {};
+  for (const a of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) result[a[1].toLowerCase()] = decode(a[2] ?? a[3] ?? a[4]);
+  return result;
+}
+function articleMarkup(html) {
+  // News sites also use <article> for their logo, search, and font controls.
+  // Prefer an explicit body marker and keep nested container boundaries intact.
+  const source = html.replace(/<!--[^]*?-->/g, '').replace(/<(script|style|noscript)\b[^>]*>[^]*?<\/\1\s*>/gi, '');
+  const stack = [], candidates = [];
+  for (const match of source.matchAll(/<(\/?)(article|main|section|div)\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/gi)) {
+    const tag = match[2].toLowerCase();
+    if (!match[1]) {
+      const attrs = attributes(match[0]);
+      const explicitBody = /(?:^|\s)articleBody(?:\s|$)/i.test(attrs.itemprop || '');
+      const knownId = /^(article-view-content-div|dic_area|articleBodyContents|articeBody|articleBody|article-body|article_body|newsct_article)$/i.test(attrs.id || '');
+      const knownClass = /(?:^|\s)(?:article-body|article-content|story-body|news-body)(?:\s|$)/i.test(attrs.class || '');
+      const priority = explicitBody ? 5 : knownId ? 4 : knownClass ? 3 : tag === 'article' ? 2 : tag === 'main' ? 1 : 0;
+      stack.push({ tag, start: match.index + match[0].length, priority });
+    } else {
+      const index = stack.findLastIndex(node => node.tag === tag);
+      if (index < 0) continue;
+      const node = stack[index]; stack.splice(index);
+      if (node.priority) {
+        const markup = source.slice(node.start, match.index);
+        const length = plain(markup).length;
+        if (length) candidates.push({ markup, priority: node.priority, length });
+      }
+    }
+  }
+  candidates.sort((a, b) => b.priority - a.priority || b.length - a.length);
+  return candidates[0]?.markup || source;
 }
 export function parseArticle(html, url) {
   const meta = {};
   for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
-    const attrs = {};
-    for (const a of match[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) attrs[a[1].toLowerCase()] = decode(a[2] ?? a[3] ?? a[4]);
+    const attrs = attributes(match[0]);
     if (attrs.property || attrs.name) meta[(attrs.property || attrs.name).toLowerCase()] = attrs.content;
   }
   const title = plain(meta['og:title'] || html.match(/<title[^>]*>([^]*?)<\/title>/i)?.[1] || '직접 입력한 기사').slice(0, 200);
-  const article = html.match(/<article\b[^>]*>([^]*?)<\/article>/i)?.[1] || html.match(/<main\b[^>]*>([^]*?)<\/main>/i)?.[1] || html;
+  const article = articleMarkup(html);
   const text = plain(article).slice(0, MAX_INPUT);
   const images = [];
   for (const candidate of [meta['og:image'], meta['twitter:image'], ...[...article.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].slice(0, 12).map(m => m[1])]) {
@@ -116,8 +148,13 @@ export async function generate(article, key, model, channel, fetcher = fetch) {
   let data; try { data = await response.json(); } catch { throw new AppError('GPT 응답을 읽을 수 없어요. 다시 시도해 주세요.', 502); }
   if (!response.ok) {
     if (response.status === 401) throw new AppError('API 키를 확인해 주세요. ChatGPT 구독과 API 결제는 별도예요.', 401, 'INVALID_KEY');
-    if (response.status === 429) throw new AppError('API 잔액 또는 요청 한도를 확인해 주세요. 잠시 후 다시 시도할 수 있어요.', 429, 'API_LIMIT');
-    if ([403, 404].includes(response.status)) throw new AppError('이 계정에서 선택한 모델을 사용할 수 없어요. GPT 설정에서 다른 모델을 선택해 주세요.', 422);
+    if (response.status === 429) {
+      const billingCodes = ['insufficient_quota', 'credit_balance_exhausted', 'organization_spend_limit_exceeded', 'project_spend_limit_exceeded', 'organization_usage_limit_exceeded'];
+      if (billingCodes.includes(data.error?.code) || billingCodes.includes(data.error?.type)) throw new AppError('API 잔액 또는 사용 예산이 부족해요. OpenAI의 API 결제·사용 한도를 확인해 주세요. ChatGPT 구독과는 별도예요.', 429, 'API_BILLING_LIMIT');
+      throw new AppError('API 요청 속도 한도에 도달했어요. 잠시 후 다시 시도해 주세요.', 429, 'API_RATE_LIMIT');
+    }
+    if (response.status === 403) throw new AppError('API 키의 Responses 쓰기 권한과 선택 모델의 접근 권한을 확인해 주세요.', 403, 'API_PERMISSION');
+    if (response.status === 404) throw new AppError('이 계정에서 선택한 모델을 사용할 수 없어요. GPT 설정에서 다른 모델을 선택해 주세요.', 422, 'MODEL_UNAVAILABLE');
     throw new AppError('GPT가 요청을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.', 502);
   }
   if (data.status === 'incomplete') throw new AppError('GPT 응답이 중간에 끝났어요. 기사 길이를 줄여 다시 시도해 주세요.', 502);
@@ -127,7 +164,7 @@ export async function generate(article, key, model, channel, fetcher = fetch) {
   return { content: checkContent(parsed), usage: data.usage ? { input_tokens: data.usage.input_tokens, output_tokens: data.usage.output_tokens } : null };
 }
 function json(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } }); }
-export function createHandler(fetcher = fetch) {
+export function createHandler(fetcher = fetch, { imageLimit = 8_000_000 } = {}) {
   return async (request, env = {}) => {
     const url = new URL(request.url);
     try {
@@ -136,7 +173,7 @@ export function createHandler(fetcher = fetch) {
         const { response } = await fetchPublic(url.searchParams.get('url'), fetcher);
         const type = response.headers.get('content-type')?.split(';')[0];
         if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(type)) throw new AppError('JPG·PNG·WEBP 형식의 이미지 주소를 입력해 주세요.');
-        return new Response(await readLimited(response, 8_000_000), { headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
+        return new Response(await readLimited(response, imageLimit), { headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
       }
       if (request.method === 'POST' && ['/api/article', '/api/generate'].includes(url.pathname)) {
         const origin = request.headers.get('origin');

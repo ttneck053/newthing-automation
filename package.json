@@ -7,6 +7,8 @@
     "start": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
     "test": "node --test tests/api.test.mjs",
     "build": "bash scripts/build.sh",
+    "build:vercel": "node scripts/build-vercel.mjs",
     "validate": "node scripts/validate-artifact.mjs"
-  }
+  },
+  "engines": { "node": "24.x" }
 }

@@ -237,7 +237,10 @@ function updateConnection() {
   $('#connection-label').textContent = apiKey ? 'GPT 키 설정됨' : serverKey ? 'GPT 연결됨' : 'GPT 연결';
   $('#server-key-note').hidden = !serverKey;
 }
-function openSettings() { $('#api-key').value = apiKey; $('#model').value = state.model; $('#settings-dialog').showModal(); }
+function openSettings() {
+  $('#api-key').value = apiKey; $('#api-key').type = 'password'; $('#api-key').setCustomValidity(''); $('#show-key').textContent = '보기';
+  $('#model').value = state.model; $('#settings-dialog').showModal();
+}
 async function generateContent() {
   if (busy || !$('#article-input').value.trim()) return;
   if (!apiKey && !serverKey) { showError('GPT 연결이 필요해요. API 키를 연결하거나 ‘샘플로 시작’으로 체험해 보세요.'); openSettings(); return; }
@@ -341,7 +344,17 @@ $('#cancel-generate').addEventListener('click', () => controller?.abort('cancel'
 $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).close()));
 $$('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target !== dialog) return; const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); }));
 $('#show-key').addEventListener('click', () => { const hidden = $('#api-key').type === 'password'; $('#api-key').type = hidden ? 'text' : 'password'; $('#show-key').textContent = hidden ? '숨기기' : '보기'; });
-$('#settings-form').addEventListener('submit', e => { e.preventDefault(); apiKey = $('#api-key').value.trim(); state.model = $('#model').value; updateConnection(); persist(); $('#settings-dialog').close(); toast(apiKey || serverKey ? 'GPT 설정을 적용했어요. Generate로 생성을 시작하세요.' : '모델 설정을 저장했어요.'); });
+$('#api-key').addEventListener('input', () => $('#api-key').setCustomValidity(''));
+$('#settings-dialog').addEventListener('close', () => { $('#api-key').value = ''; $('#api-key').type = 'password'; $('#show-key').textContent = '보기'; });
+$('#settings-form').addEventListener('submit', e => {
+  e.preventDefault(); const input = $('#api-key'), key = input.value.trim();
+  if (key && (!/^sk-[A-Za-z0-9_-]+$/.test(key) || key.startsWith('sk-admin-') || key.length > 512)) {
+    input.setCustomValidity('프로젝트에서 발급한 sk-로 시작하는 API 키 전체를 입력해 주세요. 따옴표와 공백은 빼 주세요.');
+    input.reportValidity(); return;
+  }
+  apiKey = key; state.model = $('#model').value; updateConnection(); persist(); $('#settings-dialog').close();
+  toast(apiKey || serverKey ? '키를 적용했어요. Generate를 누르면 실제 API 요청을 진행해요.' : '모델 설정을 저장했어요.');
+});
 $('#disconnect').addEventListener('click', () => { apiKey = ''; $('#api-key').value = ''; updateConnection(); $('#settings-dialog').close(); toast(serverKey ? '개인 키를 해제했어요. 서버 연결은 유지돼요.' : 'GPT 연결을 해제했어요.'); });
 $$('[data-palette]').forEach(b => b.addEventListener('click', () => { state.palette = b.dataset.palette; renderAll(); persist(); }));
 $('#download-zip').addEventListener('click', downloadZip);
