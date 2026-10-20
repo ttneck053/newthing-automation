@@ -2,8 +2,12 @@
 .openai
 .env
 .env.*
+.data
 dist
 dist-vercel
 site.tar.gz
 worker/index.js
 tests
+
+dist-cloudflare
+.wrangler

@@ -5,10 +5,21 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
     "start": "node --env-file-if-exists=.env.local scripts/dev-server.mjs",
-    "test": "node --test tests/api.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "build": "bash scripts/build.sh",
     "build:vercel": "node scripts/build-vercel.mjs",
-    "validate": "node scripts/validate-artifact.mjs"
+    "validate": "node scripts/validate-artifact.mjs",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "dev:cloudflare": "wrangler dev --local --port 4199",
+    "db:local": "wrangler d1 migrations apply FIGMA_DB --local",
+    "deploy:cloudflare": "wrangler deploy",
+    "test:cloudflare": "node tests/figma-cloudflare.integration.mjs",
+    "predeploy:cloudflare": "npm run build:cloudflare"
   },
-  "engines": { "node": "24.x" }
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.2"
+  }
 }

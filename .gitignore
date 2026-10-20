@@ -9,8 +9,11 @@
 worker/index.js
 dist/
 dist-vercel/
+dist-cloudflare/
+.wrangler/
 site.tar.gz
 node_modules/
+.data/
 
 # Local platform and agent state
 .vercel/

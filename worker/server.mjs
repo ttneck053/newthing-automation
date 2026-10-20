@@ -1,3 +1,4 @@
+import { createFigmaRelay, createD1RelayStore } from './figma-relay.mjs';
 const DEFAULT_MODEL = 'gpt-5.4-mini';
 const MODELS = ['gpt-5.4-mini', 'gpt-5.4'];
 const MAX_INPUT = 24000;
@@ -168,6 +169,7 @@ export function createHandler(fetcher = fetch, { imageLimit = 8_000_000 } = {}) 
   return async (request, env = {}) => {
     const url = new URL(request.url);
     try {
+      if (url.pathname === '/api/figma') return createFigmaRelay(createD1RelayStore(env.FIGMA_DB))(request);
       if (request.method === 'GET' && url.pathname === '/api/config') return json({ configured: Boolean(env.OPENAI_API_KEY), model: MODELS.includes(env.OPENAI_MODEL) ? env.OPENAI_MODEL : DEFAULT_MODEL });
       if (request.method === 'GET' && url.pathname === '/api/image') {
         const { response } = await fetchPublic(url.searchParams.get('url'), fetcher);
@@ -198,9 +200,21 @@ export function createHandler(fetcher = fetch, { imageLimit = 8_000_000 } = {}) 
       if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed', { status: 405 });
       const assets = typeof SITE_ASSETS === 'undefined' ? {} : SITE_ASSETS;
       const paths = { '/app.js': ['js', 'text/javascript; charset=utf-8'], '/styles.css': ['css', 'text/css; charset=utf-8'], '/font-license.txt': ['license', 'text/plain; charset=utf-8'], '/font.woff2': ['font', 'font/woff2'], '/media/city.jpg': ['city', 'image/jpeg'], '/media/markets.jpg': ['markets', 'image/jpeg'], '/media/desk.jpg': ['desk', 'image/jpeg'] };
+      Object.assign(paths, {
+        '/figma-export.js': ['figmaExport', 'text/javascript; charset=utf-8'],
+        '/figma-client.js': ['figmaClient', 'text/javascript; charset=utf-8'],
+        '/figma-receiver.html': ['figmaReceiver', 'text/html; charset=utf-8'],
+        '/figma-receiver.js': ['figmaReceiverJs', 'text/javascript; charset=utf-8'],
+        '/figma-receiver.css': ['figmaReceiverCss', 'text/css; charset=utf-8'],
+        '/figma-package.js': ['figmaPackage', 'text/javascript; charset=utf-8'],
+        '/figma-plugin/manifest.json': ['pluginManifest', 'application/json; charset=utf-8'],
+        '/figma-plugin/code.js': ['pluginCode', 'text/javascript; charset=utf-8'],
+        '/figma-plugin/ui.html': ['pluginUI', 'text/html; charset=utf-8'],
+        '/figma-plugin/README.md': ['pluginReadme', 'text/plain; charset=utf-8']
+      });
       const entry = paths[url.pathname];
       if (entry) {
-        const [key, type] = entry; const binary = !['js', 'css', 'license'].includes(key);
+        const [key, type] = entry; const binary = ['font', 'city', 'markets', 'desk'].includes(key);
         const content = binary ? Uint8Array.from(atob(assets[key] || ''), c => c.charCodeAt(0)) : assets[key] || '';
         return new Response(request.method === 'HEAD' ? null : content, { headers: { 'Content-Type': type, 'Cache-Control': binary ? 'public, max-age=3600' : 'no-cache', 'X-Content-Type-Options': 'nosniff' } });
       }

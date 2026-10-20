@@ -17,7 +17,11 @@ try {
   const saved = JSON.parse(localStorage.getItem(STORAGE));
   if (saved?.version === 1 && saved.state && Array.isArray(saved.state.cards) && saved.state.cards.length === 5 && saved.state.cards.every(c => typeof c.image === 'string')) state = { ...state, ...saved.state };
 } catch {}
-let channel = routeChannel(), apiKey = '', serverKey = false, busy = false, controller = null, imageIndex = 0, previewIndex = 0, saveTimer, toastTimer;
+let channel = routeChannel(), apiKey = '', serverKey = false, busy = false, controller = null, imageIndex = 0, previewIndex = 0, saveTimer, toastTimer, figmaExporting = false;
+const GPT_KEY_STORAGE = 'ax-openai-key-v1', FIGMA_CONNECTION_STORAGE = 'ax-figma-connection-v1';
+let figmaConnection = null, figmaStatus = null, figmaPolling = false;
+try { apiKey = localStorage.getItem(GPT_KEY_STORAGE) || ''; } catch {}
+try { const saved = JSON.parse(localStorage.getItem(FIGMA_CONNECTION_STORAGE)); if (saved && /^[a-f0-9]{64}$/.test(saved.id) && /^[a-f0-9]{64}$/.test(saved.token)) figmaConnection = saved; } catch {}
 const imageCache = new Map();
 const renderSequence = [0, 0, 0, 0, 0];
 function routeChannel() {
@@ -69,7 +73,7 @@ function updateCounts() {
 }
 function setChannel(value, navigate = true) {
   channel = value;
-  if (navigate) { const anchor = $(`[data-channel="${value}"]`); history.pushState({}, '', anchor.getAttribute('href')); window.scrollTo(0, 0); }
+  if (navigate) { const anchor = $(`[data-channel="${value}"]`), url = new URL(anchor.getAttribute('href'), location.origin); history.pushState({}, '', url); window.scrollTo(0, 0); }
   $$('.channel-list a').forEach(a => { a.classList.toggle('active', a.dataset.channel === value); if (a.dataset.channel === value) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   $('#page-title').textContent = CHANNELS[value][0];
   const documentMode = ['blog', 'research'].includes(value);
@@ -91,6 +95,7 @@ function syncHeader() {
   const source = $('#source-link'); const url = state.article?.url;
   source.hidden = !/^https?:\/\//.test(url || ''); source.href = source.hidden ? '#' : url;
   $('#download-zip').disabled = !state.content;
+  updateFigmaStatus();
   $('#footer-status').textContent = state.content ? (state.sample ? '샘플 콘텐츠 · 문구와 사진을 자유롭게 바꿔보세요.' : '카드 5장 · 변경사항이 자동 저장돼요.') : '기사 하나로, 다섯 장의 이야기.';
   $('#cards-label').textContent = `${channel === 'youtube' ? 'THUMBNAIL' : 'CARDS'} · ${state.palette.toUpperCase()}`;
   $$('.swatch').forEach(el => { const active = el.dataset.palette === state.palette; el.classList.toggle('active', active); el.setAttribute('aria-pressed', active); });
@@ -117,7 +122,8 @@ function textBlock(ctx, text, x, y, width, fontSize, color, weight = 600, lineHe
   let size = fontSize, lines;
   do { ctx.font = `${weight} ${size}px Pretendard, sans-serif`; lines = wrap(ctx, text, width); if (lines.length * size * lineHeight <= maxHeight) break; size -= 1; } while (size > 16);
   ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'top';
-  lines.forEach((line, i) => ctx.fillText(line, x, y + i * size * lineHeight));
+  if (ctx.recordText) ctx.recordText(lines, x, y, width, size, color, weight, lineHeight, align);
+  else lines.forEach((line, i) => ctx.fillText(line, x, y + i * size * lineHeight));
   ctx.textAlign = 'left'; return lines.length * size * lineHeight;
 }
 function imageCover(ctx, img, x, y, w, h, pos = 50) {
@@ -125,8 +131,8 @@ function imageCover(ctx, img, x, y, w, h, pos = 50) {
   const scale = Math.max(w / img.width, h / img.height), sw = w / scale, sh = h / scale;
   ctx.drawImage(img, (img.width - sw) * pos / 100, (img.height - sh) / 2, sw, sh, x, y, w, h);
 }
-function headline(ctx, text, x, y, width, defaultColor, scale = 1, height = 420) {
-  const c = state.cards[0], paragraphs = text.replace(/\\n/g, '\n').split('\n');
+function headline(ctx, text, x, y, width, defaultColor, scale = 1, height = 420, c = state.cards[0]) {
+  const paragraphs = text.replace(/\\n/g, '\n').split('\n');
   const lineSpace = Math.max(60, height / paragraphs.length - 14);
   for (let i = 0; i < paragraphs.length; i++) {
     const n = Math.min(i + 1, 2); let size = c['size' + n] * scale, lines;
@@ -141,15 +147,19 @@ function drawLogo(ctx, x, y, color = '#fff', size = 40) {
   ctx.beginPath(); ctx.moveTo(x, y + size * .3); ctx.lineTo(x + size * .65, y); ctx.lineTo(x + size * .65, y + size * .24); ctx.lineTo(x, y + size * .54); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(x, y + size * .52); ctx.lineTo(x + size * .65, y + size * .8); ctx.lineTo(x + size * .65, y + size); ctx.lineTo(x, y + size * .73); ctx.closePath(); ctx.fill();
 }
-function footer(ctx, i, ink, accent) {
+function footer(ctx, i, ink, accent, channel = routeChannel()) {
   ctx.strokeStyle = ink + '25'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(65, 1255); ctx.lineTo(1015, 1255); ctx.stroke();
   ctx.font = '600 21px Pretendard, sans-serif'; ctx.fillStyle = ink; ctx.fillText(CHANNELS[channel === 'youtube' ? 'awesome' : channel]?.[1] || 'AX CONTENTS LAB', 65, 1290);
   for (let n = 0; n < 5; n++) { ctx.beginPath(); ctx.arc(890 + n * 27, 1298, n === i ? 5 : 3, 0, Math.PI * 2); ctx.fillStyle = n === i ? accent : ink + '40'; ctx.fill(); }
 }
-function drawCard(canvas, index, img) {
+function drawCard(canvas, index, img, options = {}) {
+  const { state: renderState = state, channel: renderChannel = channel } = options;
+  return paintCard(canvas, index, img, renderState, renderChannel, options.context);
+}
+function paintCard(canvas, index, img, state, channel, context) {
   const c = state.cards[index], data = state.content;
   const youtube = channel === 'youtube'; canvas.width = youtube ? 1920 : 1080; canvas.height = youtube ? 1080 : 1350;
-  const ctx = canvas.getContext('2d'); ctx.textBaseline = 'top';
+  const ctx = context || canvas.getContext('2d'); ctx.textBaseline = 'top';
   if (!data) { ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, canvas.width, canvas.height); return; }
   const bg = { white: '#ffffff', dark: '#17191d', cream: '#f1ecdf' }[state.palette] || '#fff';
   const ink = state.palette === 'dark' ? '#f3f2ee' : '#17191d';
@@ -159,7 +169,7 @@ function drawCard(canvas, index, img) {
     imageCover(ctx, img, 0, 0, 1920, 1080, c.pos);
     const g = ctx.createLinearGradient(0, 0, 1920, 0); g.addColorStop(0, '#070d15f5'); g.addColorStop(.5, '#070d15b8'); g.addColorStop(1, '#070d1510'); ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
     textBlock(ctx, 'AWESOME MONEY', 100, 90, 1400, 43, '#fff', 750);
-    headline(ctx, data.hook, 100, 300, 1150, '#ffe455', 1.45, 620);
+    headline(ctx, data.hook, 100, 300, 1150, '#ffe455', 1.45, 620, state.cards[0]);
     textBlock(ctx, '경제를 읽는 새로운 시선', 105, 940, 1400, 38, '#fff', 500); return;
   }
   if (index === 0) {
@@ -168,14 +178,14 @@ function drawCard(canvas, index, img) {
       ctx.fillStyle = '#10294bc9'; ctx.fillRect(0, 0, 1080, 740);
       textBlock(ctx, 'SEOUL\nECONOMIC', 65, 67, 800, 55, '#fff', 800, 1.15);
       ctx.fillStyle = accent; ctx.fillRect(65, 800, 80, 8);
-      headline(ctx, data.hook, 65, 855, 950, ink, .78, 340); footer(ctx, index, ink, accent); return;
+      headline(ctx, data.hook, 65, 855, 950, ink, .78, 340, state.cards[0]); footer(ctx, index, ink, accent, channel); return;
     }
     imageCover(ctx, img, 0, 0, 1080, 1350, c.pos);
     const g = ctx.createLinearGradient(0, 0, 0, 1350); g.addColorStop(0, '#07111e30'); g.addColorStop(.3, '#07111e00'); g.addColorStop(.58, '#07111e70'); g.addColorStop(1, '#07111ef5'); ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1350);
     drawLogo(ctx, 65, 65); textBlock(ctx, channel === 'won' ? 'WON MONEY.ZIP' : 'AWESOME MONEY', 110, 73, 800, 29, '#fff', 800);
     textBlock(ctx, 'TODAY’S MONEY STORY', 65, 665, 900, 22, '#ffffffb0', 600);
-    headline(ctx, data.hook, 65, 740, 940, '#fff');
-    footer(ctx, index, '#ffffff', '#ffe14d'); return;
+    headline(ctx, data.hook, 65, 740, 940, '#fff', 1, 420, state.cards[0]);
+    footer(ctx, index, '#ffffff', '#ffe14d', channel); return;
   }
   if (index === 4) {
     const x = c.align === 'left' ? 70 : c.align === 'right' ? 1010 : 540;
@@ -184,7 +194,7 @@ function drawCard(canvas, index, img) {
     textBlock(ctx, CHANNELS[channel]?.[0] || 'AWESOME MONEY', x, 500, 940, 24, accent, 750, 1.4, 100, c.align);
     textBlock(ctx, data.cta, x, 605, 940, 75, ink, 800, 1.35, 330, c.align);
     ctx.fillStyle = accent; ctx.fillRect(c.align === 'left' ? 70 : c.align === 'right' ? 910 : 490, 1000, 100, 5);
-    textBlock(ctx, data.hashtags.join('  '), x, 1070, 940, 29, ink, 500, 1.5, 130, c.align); footer(ctx, index, ink, accent); return;
+    textBlock(ctx, data.hashtags.join('  '), x, 1070, 940, 29, ink, 500, 1.5, 130, c.align); footer(ctx, index, ink, accent, channel); return;
   }
   imageCover(ctx, img, 0, 0, 1080, 530, c.pos);
   const shade = ctx.createLinearGradient(0, 0, 0, 530); shade.addColorStop(0, '#0005'); shade.addColorStop(1, '#0000'); ctx.fillStyle = shade; ctx.fillRect(0, 0, 1080, 530);
@@ -199,7 +209,7 @@ function drawCard(canvas, index, img) {
     textBlock(ctx, index === 1 ? '지금, 무슨 일이?' : '그래서, 왜 중요할까?', 65, 650, 940, 55, ink, 800, 1.3, 100);
     textBlock(ctx, data[index === 1 ? 'body1' : 'body2'], 65, 765, 940, 39, ink, 500, 1.58, 440);
   }
-  footer(ctx, index, ink, accent);
+  footer(ctx, index, ink, accent, channel);
 }
 async function renderOne(i) {
   const sequence = ++renderSequence[i];
@@ -239,7 +249,7 @@ function updateConnection() {
 }
 function openSettings() {
   $('#api-key').value = apiKey; $('#api-key').type = 'password'; $('#api-key').setCustomValidity(''); $('#show-key').textContent = '보기';
-  $('#model').value = state.model; $('#settings-dialog').showModal();
+  $('#model').value = state.model; try { $('#remember-key').checked = Boolean(localStorage.getItem(GPT_KEY_STORAGE)) || !apiKey; } catch { $('#remember-key').checked = false; } $('#settings-dialog').showModal();
 }
 async function generateContent() {
   if (busy || !$('#article-input').value.trim()) return;
@@ -249,7 +259,10 @@ async function generateContent() {
   const timeout = setTimeout(() => controller.abort('timeout'), 110000);
   try {
     const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ input: $('#article-input').value.trim(), apiKey, model: state.model, channel }) });
-    const data = await response.json(); if (!response.ok) throw new Error(data.error || '생성을 완료하지 못했어요. 다시 시도해 주세요.');
+    let data;
+    try { data = await response.json(); }
+    catch { throw new Error(response.status === 429 ? '무료 서버의 오늘 요청 한도에 도달했어요. 한도가 복구된 뒤 다시 시도해 주세요.' : '서버 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.'); }
+    if (!response.ok) throw new Error(data.error || '생성을 완료하지 못했어요. 다시 시도해 주세요.');
     adopt(data.content, data.article, false); toast('카드 문구가 준비됐어요. 자유롭게 편집해 보세요.');
     if (data.usage) $('#footer-status').textContent = `입력 ${data.usage.input_tokens.toLocaleString()} · 출력 ${data.usage.output_tokens.toLocaleString()} tokens`;
   } catch (error) { if (controller.signal.aborted) showError(controller.signal.reason === 'timeout' ? '응답 시간이 길어져서 멈췄어요. 잠시 후 다시 시도해 주세요.' : '생성을 취소했어요. 이미 처리된 API 요청에는 비용이 발생할 수 있어요.'); else showError(error.message); }
@@ -301,6 +314,65 @@ async function downloadZip() {
   } catch (error) { showError(error.message); }
   finally { button.disabled = false; button.innerHTML = '<span class="download-icon">↓</span> ZIP 다운로드'; }
 }
+function updateFigmaStatus() {
+  const connected = Boolean(figmaConnection), info = figmaStatus;
+  $('#figma-account').textContent = connected ? (info?.user?.name || figmaConnection.user?.name || '연결된 계정') : 'Figma 계정 미연결';
+  $('#figma-destination').textContent = connected && info?.online ? `${info.destination.file} / ${info.destination.page}` : connected ? '받을 파일에서 AX Contents Studio 플러그인을 열어 주세요.' : '처음 한 번 계정을 연결하면 파일 없이 전송할 수 있어요.';
+  $('#figma-unlink').hidden = !connected;
+  $('#figma-pair-form').hidden = connected;
+  $('#figma-connection-label').textContent = connected ? (info?.online ? 'Figma 연결됨' : 'Figma 계정 등록됨') : 'Figma 계정 연결';
+  const job = info?.job;
+  $('#figma-unlink').disabled = figmaExporting || Boolean(job && ['uploading','queued','processing'].includes(job.state));
+  const statuses = { uploading: '사진·문구 전송 중…', queued: 'Figma 수신 대기 중…', processing: 'Figma에서 카드 제작 중…', done: `${job?.count || 0}장 제작 완료`, cancelled: '전송 취소됨', error: job?.error || '전송 실패' };
+  if (job && !figmaExporting) $('#figma-transfer-status').textContent = statuses[job.state] || '';
+  $('#download-figma').disabled = !state.content || figmaExporting || Boolean(job && ['uploading','queued','processing'].includes(job.state));
+}
+async function refreshFigma() {
+  if (!figmaConnection || figmaPolling) return;
+  figmaPolling = true; const current = figmaConnection;
+  try {
+    const result = await AXFigmaClient.request(current, { action: 'status' });
+    if (figmaConnection !== current) return;
+    figmaStatus = result; updateFigmaStatus();
+  } catch (error) {
+    if (figmaConnection !== current) return;
+    figmaStatus = null;
+    if ([401,403,404].includes(error.status)) { figmaConnection = null; try { localStorage.removeItem(FIGMA_CONNECTION_STORAGE); } catch {} }
+    updateFigmaStatus(); $('#figma-transfer-status').textContent = error.message;
+  } finally { figmaPolling = false; }
+}
+async function downloadFigma() {
+  if (!state.content || figmaExporting) return;
+  if (!figmaConnection) { $('#figma-dialog').showModal(); return; }
+  const snapshot = structuredClone(state), selectedChannel = channel, connection = figmaConnection;
+  figmaExporting = true; $('#download-figma').disabled = true; showError('');
+  const progress = text => $('#figma-transfer-status').textContent = text;
+  try {
+    const destination = await AXFigmaClient.request(connection, { action: 'status' });
+    if (!destination.online) throw new Error('받을 Figma 파일에서 AX Contents Studio 플러그인을 열어 주세요.');
+    progress('Figma에 보낼 카드 준비 중…');
+    const bundle = await AXFigma.createBundle({ snapshot, channel: selectedChannel, loadImage, drawCard });
+    await AXFigmaClient.send(connection, bundle, destination, $('#figma-arrangement').value, progress);
+    progress('Figma에서 카드를 만들고 있어요…');
+    toast('Figma로 보냈어요. 제작 완료 상태가 여기에 표시돼요.');
+  } catch (error) { showError(error.message); progress(error.message); }
+  finally { figmaExporting = false; await pollFigmaStatus(); updateFigmaStatus(); }
+}
+async function downloadFigmaPlugin() {
+  const button = $('#download-figma-plugin'); button.disabled = true;
+  $('#figma-help-status').textContent = '플러그인을 준비하고 있어요…';
+  try {
+    const source = await Promise.all(['manifest.json', 'code.js', 'ui.html', 'README.md'].map(async name => {
+      const response = await fetch('/figma-plugin/' + name);
+      if (!response.ok) throw new Error('플러그인을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return { name, text: await response.text() };
+    }));
+    const files = AXFigmaPackage.configure(source, location.origin).map(file => ({ name: 'ax-contents-figma/' + file.name, bytes: new TextEncoder().encode(file.text) }));
+    download(makeZip(files), 'ax-contents-figma-plugin.zip');
+    $('#figma-help-status').textContent = '이 스튜디오에 자동 연결되는 플러그인이에요. 처음 한 번 manifest.json을 등록해 주세요.';
+  } catch (error) { $('#figma-help-status').textContent = error.message; }
+  finally { button.disabled = false; }
+}
 async function setImage(src) { state.cards[imageIndex].image = src; state.cards[imageIndex].pos = 50; await renderOne(imageIndex); persist(); $('#image-dialog').close(); toast('이미지를 변경했어요.'); }
 async function uploadFile(file) {
   $('#image-error').textContent = '';
@@ -340,7 +412,7 @@ $('#article-input').addEventListener('input', () => { state.input = $('#article-
 $('#article-input').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); generateContent(); } });
 $('#sample').addEventListener('click', loadSample); $('#generate').addEventListener('click', generateContent);
 $('#cancel-generate').addEventListener('click', () => controller?.abort('cancel'));
-['#settings', '#settings-side'].forEach(s => $(s).addEventListener('click', openSettings));
+['#settings', '#settings-side', '#settings-onboard'].forEach(s => $(s).addEventListener('click', openSettings));
 $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).close()));
 $$('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target !== dialog) return; const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); }));
 $('#show-key').addEventListener('click', () => { const hidden = $('#api-key').type === 'password'; $('#api-key').type = hidden ? 'text' : 'password'; $('#show-key').textContent = hidden ? '숨기기' : '보기'; });
@@ -352,12 +424,35 @@ $('#settings-form').addEventListener('submit', e => {
     input.setCustomValidity('프로젝트에서 발급한 sk-로 시작하는 API 키 전체를 입력해 주세요. 따옴표와 공백은 빼 주세요.');
     input.reportValidity(); return;
   }
-  apiKey = key; state.model = $('#model').value; updateConnection(); persist(); $('#settings-dialog').close();
-  toast(apiKey || serverKey ? '키를 적용했어요. Generate를 누르면 실제 API 요청을 진행해요.' : '모델 설정을 저장했어요.');
+  apiKey = key; let saved = true;
+  try { if ($('#remember-key').checked && key) localStorage.setItem(GPT_KEY_STORAGE, key); else localStorage.removeItem(GPT_KEY_STORAGE); }
+  catch { saved = false; }
+  state.model = $('#model').value; updateConnection(); persist(); $('#settings-dialog').close();
+  toast(!saved ? '키는 이번 탭에서 사용할 수 있지만 브라우저에 저장하지 못했어요.' : apiKey || serverKey ? '키를 적용했어요. Generate를 누르면 실제 API 요청을 진행해요.' : '모델 설정을 저장했어요.');
 });
-$('#disconnect').addEventListener('click', () => { apiKey = ''; $('#api-key').value = ''; updateConnection(); $('#settings-dialog').close(); toast(serverKey ? '개인 키를 해제했어요. 서버 연결은 유지돼요.' : 'GPT 연결을 해제했어요.'); });
+$('#disconnect').addEventListener('click', () => { apiKey = ''; try { localStorage.removeItem(GPT_KEY_STORAGE); } catch {} $('#api-key').value = ''; updateConnection(); $('#settings-dialog').close(); toast(serverKey ? '개인 키를 해제했어요. 서버 연결은 유지돼요.' : 'GPT 연결을 해제했어요.'); });
 $$('[data-palette]').forEach(b => b.addEventListener('click', () => { state.palette = b.dataset.palette; renderAll(); persist(); }));
 $('#download-zip').addEventListener('click', downloadZip);
+$('#download-figma').addEventListener('click', downloadFigma);
+$('#figma-help').addEventListener('click', () => { $('#figma-dialog').showModal(); refreshFigma(); });
+$('#figma-settings').addEventListener('click', () => { $('#figma-dialog').showModal(); refreshFigma(); });
+$('#figma-pair-form').addEventListener('submit', async event => {
+  event.preventDefault(); const button = $('#figma-pair-button'); button.disabled = true; $('#figma-pair-error').textContent = '';
+  const token = AXFigmaClient.token(), code = $('#figma-code').value.replace(/[\s-]/g,'').toUpperCase();
+  try {
+    const result = await AXFigmaClient.request(null, { action: 'pair', token, code });
+    const connected = { id: result.id, token, user: result.user };
+    try { localStorage.setItem(FIGMA_CONNECTION_STORAGE, JSON.stringify(connected)); } catch { $('#figma-pair-error').textContent = '연결은 완료됐지만 저장 공간이 없어 다음 실행에 다시 연결해야 해요.'; }
+    figmaConnection = connected; figmaStatus = result; $('#figma-code').value = ''; updateFigmaStatus(); toast('Figma 계정을 등록했어요.');
+  } catch (error) { $('#figma-pair-error').textContent = error.message; }
+  finally { button.disabled = false; }
+});
+$('#figma-unlink').addEventListener('click', async () => {
+  if (!figmaConnection || $('#figma-unlink').disabled) return;
+  try { await AXFigmaClient.request(figmaConnection, { action: 'disconnect' }); figmaConnection = null; figmaStatus = null; try { localStorage.removeItem(FIGMA_CONNECTION_STORAGE); } catch {} $('#figma-transfer-status').textContent = ''; updateFigmaStatus(); }
+  catch (error) { $('#figma-pair-error').textContent = error.message; }
+});
+$('#download-figma-plugin').addEventListener('click', downloadFigmaPlugin);
 $('#preview-prev').addEventListener('click', () => openPreview(channel === 'youtube' ? 0 : (previewIndex + 4) % 5));
 $('#preview-next').addEventListener('click', () => openPreview(channel === 'youtube' ? 0 : (previewIndex + 1) % 5));
 $('#preview-download').addEventListener('click', () => downloadCard(previewIndex));
@@ -378,3 +473,18 @@ $('#copy-document').addEventListener('click', async () => { try { await navigato
 $('#download-document').addEventListener('click', () => download(new Blob(['\ufeff' + $('#document-content').value], { type: 'text/plain;charset=utf-8' }), `ax-${channel}.txt`));
 $('#article-input').value = state.input || ''; buildEditors(); setChannel(channel, false); updateInput(); updateConnection();
 fetch('/api/config').then(r => r.json()).then(config => { serverKey = config.configured; if (!state.model) state.model = config.model; updateConnection(); }).catch(() => {});
+
+let figmaPollTimer, figmaPollRunning = false;
+async function pollFigmaStatus() {
+  if (figmaPollRunning) return;
+  figmaPollRunning = true;
+  clearTimeout(figmaPollTimer);
+  try { if (!document.hidden) await refreshFigma(); }
+  finally {
+    figmaPollRunning = false;
+    const active = figmaExporting || ['uploading','queued','processing'].includes(figmaStatus?.job?.state);
+    figmaPollTimer = setTimeout(pollFigmaStatus, active ? 3000 : 30000);
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollFigmaStatus(); });
+pollFigmaStatus();
