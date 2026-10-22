@@ -1,5 +1,5 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="folio-studio-origin" content="http://localhost:4177"><style>html,body{margin:0;height:100%;font:12px Arial,sans-serif;background:#f5f5ef}iframe{width:100%;height:100%;border:0}#notice{position:absolute;inset:0;padding:35px;display:flex;align-items:center;justify-content:center;background:#f5f5ef;line-height:1.8;text-align:center}#notice[hidden]{display:none}button{padding:9px 16px;border:1px solid #ddd;background:white;border-radius:5px;cursor:pointer}</style></head><body>
-<iframe id="receiver" title="뉴띵 카드뉴스 자동화 Figma 연결" sandbox="allow-scripts allow-same-origin allow-forms"></iframe><div id="notice"><div><p id="message">스튜디오에 연결하고 있어요…</p><button id="retry" hidden>다시 연결</button></div></div>
+<iframe id="receiver" title="newthing 자동화 프로젝트 Figma 연결" sandbox="allow-scripts allow-same-origin allow-forms"></iframe><div id="notice"><div><p id="message">스튜디오에 연결하고 있어요…</p><button id="retry" hidden>다시 연결</button></div></div>
 <script>
 const frame=document.getElementById('receiver'),origin=new URL(document.querySelector('meta[name="folio-studio-origin"]').content).origin;
 const session=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');

@@ -143,7 +143,7 @@ async function importBundle(api, data, arrangement = 'row') {
   let root;
   try {
     root = api.createFrame(); page.appendChild(root);
-    root.name = `뉴띵 카드뉴스 자동화 · ${data.title || '카드뉴스'}${data.sample ? ' · 샘플' : ''}`;
+    root.name = `newthing 자동화 프로젝트 · ${data.title || '카드뉴스'}${data.sample ? ' · 샘플' : ''}`;
     root.fills = []; root.clipsContent = false;
     root.resize(columns * width + (columns - 1) * gap, Math.ceil(data.cards.length / columns) * (height + gap) - gap);
     root.x = Math.round(api.viewport.center.x - root.width / 2); root.y = Math.round(api.viewport.center.y - root.height / 2);

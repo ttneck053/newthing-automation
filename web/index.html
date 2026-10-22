@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#202823">
-<meta name="description" content="뉴띵 카드뉴스 자동화. 기사 한 편으로 인스타그램 카드뉴스 5장을 만드는 작업실.">
-<title>뉴띵 카드뉴스 자동화</title>
+<meta name="description" content="newthing 자동화 프로젝트. 기사 한 편으로 인스타그램 카드뉴스 5장을 만드는 작업실.">
+<title>newthing 자동화 프로젝트</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23202823'/%3E%3Cpath d='M12 9h19v24H12z' fill='%23fffefa'/%3E%3Cpath d='M7 7v22h3V10h17V7z' fill='%23a6b297'/%3E%3C/svg%3E">
 <link rel="preload" href="/font.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css">
@@ -17,7 +17,7 @@
 <body>
 <a class="skip-link" href="#article-input">콘텐츠 입력으로 이동</a>
 <header class="app-header">
-<a href="/generate" class="brand-link" aria-label="뉴띵 카드뉴스 자동화 홈"><span class="wordmark">뉴띵 카드뉴스 자동화</span></a>
+<a href="/generate" class="brand-link" aria-label="newthing 자동화 프로젝트 홈"><span class="wordmark">newthing 자동화 프로젝트</span></a>
 <button id="settings" class="settings-button"><span class="status-dot" aria-hidden="true"></span>설정</button>
 </header>
 <main class="workspace">
@@ -53,7 +53,7 @@
 <div class="settings-section-heading"><h3 id="figma-settings-title">Figma</h3><span id="figma-account" class="connection-state">연결 안 됨</span></div>
 <p id="figma-destination" class="field-help"></p><button id="figma-unlink" class="text-button" hidden>연결 해제</button>
 <form id="figma-pair-form"><label for="figma-code">플러그인에 표시된 연결 코드</label><div class="inline-form"><input id="figma-code" autocomplete="off" spellcheck="false" maxlength="11" placeholder="ABCDE 12345" required><button id="figma-pair-button" class="button ink-button">연결</button></div></form><p id="figma-pair-error" role="alert" class="field-error"></p>
-<details class="figma-install"><summary>플러그인 설치 및 전송 설정</summary><ol class="figma-steps"><li>아래 ZIP을 풀고 Figma 데스크톱의 Plugins → Development → Import plugin from manifest에서 manifest.json을 등록하세요.</li><li>받을 파일에서 뉴띵 카드뉴스 자동화 플러그인을 실행하세요.</li><li>표시된 코드를 위에 입력해 연결하세요. 플러그인을 열어 두면 카드 편집 화면의 “더 보기 → Figma로 보내기”로 전송할 수 있어요.</li></ol><button id="download-figma-plugin" class="button outline">플러그인 다운로드 ↓</button><label class="control-label" for="figma-arrangement">카드 배치</label><select id="figma-arrangement"><option value="row">가로로 나란히</option><option value="grid">한 줄에 3장</option><option value="column">세로로 나란히</option></select></details><p id="figma-help-status" role="status" aria-live="polite" class="field-help"></p>
+<details class="figma-install"><summary>플러그인 설치 및 전송 설정</summary><ol class="figma-steps"><li>아래 ZIP을 풀고 Figma 데스크톱의 Plugins → Development → Import plugin from manifest에서 manifest.json을 등록하세요.</li><li>받을 파일에서 newthing 자동화 프로젝트 플러그인을 실행하세요.</li><li>표시된 코드를 위에 입력해 연결하세요. 플러그인을 열어 두면 카드 편집 화면의 “더 보기 → Figma로 보내기”로 전송할 수 있어요.</li></ol><button id="download-figma-plugin" class="button outline">플러그인 다운로드 ↓</button><label class="control-label" for="figma-arrangement">카드 배치</label><select id="figma-arrangement"><option value="row">가로로 나란히</option><option value="grid">한 줄에 3장</option><option value="column">세로로 나란히</option></select></details><p id="figma-help-status" role="status" aria-live="polite" class="field-help"></p>
 </section></dialog>
 <dialog id="preview-dialog" class="preview-dialog"><div class="preview-top"><button id="preview-prev" class="icon-button" aria-label="이전 카드">←</button><span id="preview-title">01 / 05</span><div><button id="preview-download" class="icon-button" aria-label="이 카드 다운로드">↓</button><button class="icon-button" data-close="preview-dialog" aria-label="미리보기 닫기">×</button></div></div><div class="preview-frame"><canvas id="preview-canvas" width="1080" height="1350"></canvas></div><button id="preview-next" class="preview-next" aria-label="다음 카드">→</button></dialog>
 <dialog id="image-dialog" class="image-dialog"><div class="dialog-heading"><div><span class="eyebrow">IMAGE</span><h2>이미지 변경</h2></div><button class="icon-button" data-close="image-dialog" aria-label="이미지 설정 닫기">×</button></div><label class="upload-area" for="image-file"><span>＋</span><strong>사진을 선택하거나 여기에 놓으세요</strong><small>JPG · PNG · WEBP · GIF / 최대 8MB</small><input id="image-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden></label><form id="image-url-form"><label for="image-url">또는 이미지 URL</label><div class="inline-form"><input id="image-url" type="url" placeholder="https://…jpg / png" required><button class="button outline" type="submit">적용</button></div></form><div id="image-error" role="alert" class="field-error"></div><span class="eyebrow image-options-label">스튜디오 이미지 · UNSPLASH</span><div class="image-presets"><button data-image="/media/city.jpg" aria-label="도시 빌딩 이미지"><img src="/media/city.jpg" alt="도시의 고층 빌딩"></button><button data-image="/media/markets.jpg" aria-label="주식 차트 이미지"><img src="/media/markets.jpg" alt="금융 시장 차트"></button><button data-image="/media/desk.jpg" aria-label="비즈니스 이미지"><img src="/media/desk.jpg" alt="자료를 살펴보는 사람들"></button></div><button id="remove-image" class="button subtle remove-image">이미지 제거</button></dialog>

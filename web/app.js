@@ -151,7 +151,7 @@ function headline(ctx, text, x, y, width, defaultColor, scale = 1, height = 420,
 }
 function footer(ctx, i, ink, accent, channel = routeChannel()) {
   ctx.fillStyle = ink + '25'; ctx.fillRect(64, 1254, 952, 2);
-  textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 1280, 780, 20, ink, 550);
+  textBlock(ctx, 'newthing 자동화 프로젝트', 64, 1280, 780, 20, ink, 550);
   textBlock(ctx, `${String(i + 1).padStart(2, '0')} / 05`, 1016, 1280, 160, 20, accent, 650, 1.2, 50, 'right');
 }
 function drawCard(canvas, index, img, options = {}) {
@@ -175,7 +175,7 @@ function paintCard(canvas, index, img, state, channel, context) {
     if (channel === 'contrast') {
       ctx.fillStyle = '#253227'; ctx.fillRect(0, 0, 1080, 690);
 
-      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 65, 700, 24, '#e9f0e1', 600);
+      textBlock(ctx, 'newthing 자동화 프로젝트', 64, 65, 700, 24, '#e9f0e1', 600);
       ctx.fillStyle = '#c8df9f'; ctx.fillRect(884, 58, 132, 44);
       textBlock(ctx, 'ISSUE 01', 901, 68, 110, 20, '#253227', 650);
       textBlock(ctx, '선명하게, 한 장의 이야기.', 64, 187, 900, 28, '#c8df9f', 550);
@@ -186,14 +186,14 @@ function paintCard(canvas, index, img, state, channel, context) {
     } else if (channel === 'brief') {
       ctx.fillStyle = accent; ctx.fillRect(0, 0, 1080, 121);
 
-      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 44, 750, 27, dark ? '#202823' : '#fffefa', 650);
+      textBlock(ctx, 'newthing 자동화 프로젝트', 64, 44, 750, 27, dark ? '#202823' : '#fffefa', 650);
       imageCover(ctx, img, 64, 170, 952, 470, c.pos);
       ctx.fillStyle = accent; ctx.fillRect(64, 685, 62, 5);
       textBlock(ctx, '오늘의 이야기를 짧고 깊게.', 64, 724, 950, 26, accent, 550);
       headline(ctx, data.hook, 64, 820, 952, ink, .98, 360, state.cards[0]);
     } else {
 
-      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 65, 800, 24, ink, 550);
+      textBlock(ctx, 'newthing 자동화 프로젝트', 64, 65, 800, 24, ink, 550);
       ctx.fillStyle = line; ctx.fillRect(64, 132, 952, 2);
       textBlock(ctx, '한 편의 생각, 한 장의 기록.', 64, 176, 952, 25, accent, 550);
       headline(ctx, data.hook, 64, 272, 952, ink, 1, 340, state.cards[0]);
@@ -203,7 +203,7 @@ function paintCard(canvas, index, img, state, channel, context) {
     footer(ctx, index, ink, accent, channel); return;
   }
 
-  textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 57, 650, 22, ink, 650);
+  textBlock(ctx, 'newthing 자동화 프로젝트', 64, 57, 650, 22, ink, 650);
   textBlock(ctx, label, 1016, 60, 720, 20, accent, 600, 1.2, 45, 'right');
   ctx.fillStyle = line; ctx.fillRect(64, 119, 952, 2);
   if (index === 4) {
@@ -348,7 +348,7 @@ async function downloadZip() {
 function updateFigmaStatus() {
   const connected = Boolean(figmaConnection), info = figmaStatus;
   $('#figma-account').textContent = connected ? (info?.user?.name || figmaConnection.user?.name || '연결된 계정') : '연결 안 됨';
-  $('#figma-destination').textContent = connected && info?.online ? `${info.destination.file} / ${info.destination.page}` : connected ? '받을 파일에서 뉴띵 카드뉴스 자동화 플러그인을 열어 주세요.' : '카드를 편집 가능한 Figma 레이어로 보내요.';
+  $('#figma-destination').textContent = connected && info?.online ? `${info.destination.file} / ${info.destination.page}` : connected ? '받을 파일에서 newthing 자동화 프로젝트 플러그인을 열어 주세요.' : '카드를 편집 가능한 Figma 레이어로 보내요.';
   $('#figma-unlink').hidden = !connected;
   $('#figma-pair-form').hidden = connected;
   const job = info?.job;
@@ -379,7 +379,7 @@ async function downloadFigma() {
   const progress = text => $('#figma-transfer-status').textContent = text;
   try {
     const destination = await FolioFigmaClient.request(connection, { action: 'status' });
-    if (!destination.online) throw new Error('받을 Figma 파일에서 뉴띵 카드뉴스 자동화 플러그인을 열어 주세요.');
+    if (!destination.online) throw new Error('받을 Figma 파일에서 newthing 자동화 프로젝트 플러그인을 열어 주세요.');
     progress('Figma에 보낼 카드 준비 중…');
     const bundle = await FolioFigma.createBundle({ snapshot, channel: selectedChannel, loadImage, drawCard });
     await FolioFigmaClient.send(connection, bundle, destination, $('#figma-arrangement').value, progress);
