@@ -1,8 +1,8 @@
 // Records the same drawing operations used by PNG export as editable design layers.
 // No screenshot of a card is used in the Figma document.
 'use strict';
-globalThis.AXFigma = (() => {
-  const FORMAT = 'ax-contents-figma';
+globalThis.FolioFigma = (() => {
+  const FORMAT = 'folio-figma';
   class SceneContext {
     constructor(measure, imageIds) {
       this.measure = measure; this.imageIds = imageIds; this.nodes = [];
@@ -48,9 +48,9 @@ globalThis.AXFigma = (() => {
     }
   }
   async function createBundle({ snapshot, channel, loadImage, drawCard }) {
-    if (!snapshot.content || !['awesome', 'economic', 'won', 'youtube'].includes(channel)) throw new Error('카드뉴스나 YouTube 결과를 먼저 만들어 주세요.');
+    if (!snapshot.content || !['editorial', 'contrast', 'brief'].includes(channel)) throw new Error('카드뉴스를 먼저 만들어 주세요.');
     await document.fonts.ready;
-    const indices = channel === 'youtube' ? [0] : [0, 1, 2, 3, 4];
+    const indices = [0, 1, 2, 3, 4];
     const assets = [], imageIds = new Map(), images = [];
     for (const i of indices) {
       const src = snapshot.cards[i].image, img = await loadImage(src);

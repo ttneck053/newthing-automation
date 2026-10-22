@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "ax-contents-studio",
+  "name": "folio-studio",
   "main": "worker/cloudflare.mjs",
   "compatibility_date": "2026-10-20",
   "workers_dev": true,
@@ -12,7 +12,7 @@
   "d1_databases": [
     {
       "binding": "FIGMA_DB",
-      "database_name": "ax-contents-figma",
+      "database_name": "folio-figma",
       "migrations_dir": "migrations"
     }
   ],

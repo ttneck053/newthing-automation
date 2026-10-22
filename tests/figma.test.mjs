@@ -8,12 +8,12 @@ vm.runInContext(readFileSync(new URL('../figma-plugin/code.js', import.meta.url)
 const { parseBundle, importBundle, decodeImage } = context;
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
 const fixture = () => ({
-  format: 'ax-contents-figma', version: 1, title: '한글 카드 테스트', channel: 'youtube', assets: [{ id: 'image-1', data: 'data:image/png;base64,' + png }],
-  cards: [{ name: '01 · hook', width: 1920, height: 1080, nodes: [
-    { type: 'image', x: 0, y: 0, width: 1920, height: 1080, asset: 'image-1', crop: [0.5, 1, 0.25, 0] },
-    { type: 'rect', x: 0, y: 0, width: 1920, height: 1080, paint: { type: 'gradient', axis: 'horizontal', stops: [{ position: 0, color: '#000f' }, { position: 1, color: '#0000' }] } },
+  format: 'folio-figma', version: 1, title: '한글 카드 테스트', channel: 'editorial', assets: [{ id: 'image-1', data: 'data:image/png;base64,' + png }],
+  cards: Array.from({ length: 5 }, (_, i) => ({ name: `${i + 1} · card`, width: 1080, height: 1350, nodes: [
+    { type: 'image', x: 0, y: 0, width: 1080, height: 1350, asset: 'image-1', crop: [0.5, 1, 0.25, 0] },
+    { type: 'rect', x: 0, y: 0, width: 1080, height: 1350, paint: { type: 'gradient', axis: 'horizontal', stops: [{ position: 0, color: '#000f' }, { position: 1, color: '#0000' }] } },
     { type: 'text', x: 960, y: 100, width: 1000, text: '첫 줄\n둘째 줄', fontSize: 80, weight: 850, lineHeight: 96, align: 'center', paint: { type: 'solid', color: '#fff' } }
-  ] }]
+  ] }))
 });
 function mockFigma({ fallback = false, failText = false, failImage = false } = {}) {
   let counter = 0; const loaded = new Set(), all = [];
@@ -45,17 +45,17 @@ function mockFigma({ fallback = false, failText = false, failImage = false } = {
 test('imports real editable text, cropped photos, gradients and PNG export settings', async () => {
   const data = parseBundle(JSON.stringify(fixture())); const { api, page, existing } = mockFigma();
   const result = await importBundle(api, data, 'row');
-  assert.equal(result.count, 1); assert.equal(result.fallback, false);
+  assert.equal(result.count, 5); assert.equal(result.fallback, false);
   assert.equal(page.children.length, 2); assert.equal(page.children[0], existing);
   const root = page.children[1], frame = root.children[0], [image, gradient, text] = frame.children;
-  assert.equal(frame.width, 1920); assert.equal(frame.height, 1080); assert.equal(frame.exportSettings[0].format, 'PNG');
+  assert.equal(frame.width, 1080); assert.equal(frame.height, 1350); assert.equal(frame.exportSettings[0].format, 'PNG');
   assert.equal(text.type, 'TEXT'); assert.equal(text.characters, '첫 줄\n둘째 줄'); assert.equal(text.fontName.style, 'ExtraBold'); assert.equal(text.x, 960 - 210);
   assert.equal(image.fills[0].scaleMode, 'CROP'); assert.equal(image.fills[0].imageTransform[0][2], 0.25);
   assert.equal(gradient.fills[0].type, 'GRADIENT_LINEAR'); assert.equal(gradient.fills[0].gradientStops[1].color.a, 0);
   assert.equal(page.selection[0], root); assert(api.committed);
 });
 test('arranges all five cards without altering existing content; repeated import adds a new group', async () => {
-  const data = fixture(); data.channel = 'won'; data.cards = Array.from({ length: 5 }, (_, i) => ({ ...structuredClone(data.cards[0]), name: String(i), width: 1080, height: 1350 }));
+  const data = fixture(); data.channel = 'brief'; data.cards = Array.from({ length: 5 }, (_, i) => ({ ...structuredClone(data.cards[0]), name: String(i), width: 1080, height: 1350 }));
   const { api, page } = mockFigma();
   await importBundle(api, parseBundle(JSON.stringify(data)), 'grid');
   const root = page.children[1]; assert.equal(root.children.length, 5);
@@ -65,7 +65,7 @@ test('arranges all five cards without altering existing content; repeated import
 });
 test('rejects wrong versions, dimensions, invalid geometry, missing photos, invalid base64 and oversized layers', () => {
   for (const mutate of [
-    d => { d.version = 2; }, d => { d.cards[0].width = 1080; }, d => { d.cards = []; },
+    d => { d.version = 2; }, d => { d.cards[0].width = 1920; }, d => { d.cards = []; }, d => { d.cards = d.cards.slice(0, 1); }, d => { d.channel = 'unsupported'; },
     d => { d.cards[0].nodes[0].x = null; }, d => { d.cards[0].nodes[0].crop[0] = 0; },
     d => { d.cards[0].nodes[0].asset = 'missing'; }, d => { d.assets[0].data = 'https://example.com/photo.png'; },
     d => { d.assets[0].data = 'data:image/png;base64,!!!!'; }, d => { d.cards[0].nodes[2].text = 'x'.repeat(5001); },
@@ -137,13 +137,13 @@ test('shared card renderer emits the expected editable scene for every visual ch
   const drawing = app.slice(app.indexOf('function wrap('), app.indexOf('async function renderOne('));
   const ctx = vm.createContext({});
   vm.runInContext(readFileSync(new URL('../web/figma-export.js', import.meta.url), 'utf8'), ctx);
-  vm.runInContext(`const CHANNELS = { awesome: ['AWESOME MONEY', 'awesome'], economic: ['SEOUL ECONOMIC', 'economic'], won: ['WON MONEY.ZIP', 'won'], youtube: ['YOUTUBE', 'youtube'] }; ${drawing}`, ctx);
+  vm.runInContext(`const CHANNELS = { editorial: ['에디토리얼', 'EDITORIAL'], contrast: ['콘트라스트', 'CONTRAST'], brief: ['브리프', 'BRIEF'] }; ${drawing}`, ctx);
   const measure = { measureText(text) { return { width: [...text].length * Number(this.font.match(/([\d.]+)px/)[1]) * 0.6 }; } };
   const image = { width: 1600, height: 1000 }, imageIds = new Map([[image, 'image-1']]);
-  for (const channel of ['awesome', 'economic', 'won', 'youtube']) for (const palette of ['white', 'cream', 'dark']) {
+  for (const channel of ['editorial', 'contrast', 'brief']) for (const palette of ['white', 'cream', 'dark']) {
     const state = { palette, content: { hook: '카드 제목\n두 번째 줄', body1: '첫 번째 본문입니다.', body2: '두 번째 본문입니다.', phrase: 'Follow the money', meaning: '돈의 흐름', cta: '저장해 주세요', hashtags: ['#테스트'] }, cards: Array.from({length: 5}, () => ({ pos: 20, align: 'right', size1: 110, size2: 100, color1: '#ffffff', color2: '#ffe455', highlight1: true })) };
-    const cards = Array.from({ length: channel === 'youtube' ? 1 : 5 }, (_, i) => {
-      const canvas = {}, context = new ctx.AXFigma.SceneContext(measure, imageIds);
+    const cards = Array.from({ length: 5 }, (_, i) => {
+      const canvas = {}, context = new ctx.FolioFigma.SceneContext(measure, imageIds);
       ctx.drawCard(canvas, i, image, { state, channel, context });
       assert(context.nodes.some(n => n.type === 'text')); assert.equal(context.nodes.filter(n => n.type === 'image').length, 1);
       if (i === 0) assert(context.nodes.some(n => n.type === 'rect' && n.paint.color === '#ffe14d'));

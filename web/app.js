@@ -1,34 +1,41 @@
 'use strict';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const CHANNELS = { awesome: ['AWESOME MONEY', 'awsomemoney_official'], economic: ['SEOUL ECONOMIC', 'seoul_economic'], won: ['WON MONEY.ZIP', 'won_money.zip'], youtube: ['YOUTUBE THUMBNAIL', 'YouTube 썸네일'], blog: ['BLOG', '블로그 초안'], research: ['RESEARCH', '리서치 노트'] };
-const STORAGE = 'ax-contents-studio-v1';
+const CHANNELS = { editorial: ['에디토리얼', 'EDITORIAL'], contrast: ['콘트라스트', 'CONTRAST'], brief: ['브리프', 'BRIEF'] };
+const STORAGE = 'folio-studio-v1';
+// Move this origin's previous installation data to the current storage namespace.
+// Suffixes describe data types; no previous display names are needed.
+function readStored(key, previousSuffix) {
+  const current = localStorage.getItem(key);
+  if (current !== null) return current;
+  const previous = Object.keys(localStorage).find(name => name !== key && name.endsWith(previousSuffix));
+  if (!previous) return null;
+  const value = localStorage.getItem(previous);
+  try { localStorage.setItem(key, value); localStorage.removeItem(previous); } catch {}
+  return value;
+}
 const sampleContent = {
   title: '금리가 바뀌면, 내 돈의 흐름도 바뀐다', hook: '금리가 움직이면\n내 돈은 어디로?',
   body1: '금리는 돈을 빌릴 때 내는 비용이자, 돈을 맡길 때 받는 보상이에요. 기준금리가 바뀌면 은행의 예금·대출 금리에도 영향을 줍니다. 금리가 내려가면 대출자의 이자 부담이 줄어들 수 있지만, 예금으로 받을 수 있는 이자도 낮아질 수 있어요. 다만 모든 금융상품의 금리가 동시에, 같은 폭으로 움직이는 건 아닙니다. 내 상품의 고정·변동금리 여부와 금리 변경 시점을 먼저 살펴보세요.',
   body2: '중앙은행은 물가와 경기 상황을 살피며 기준금리를 결정해요. 금리를 낮추면 소비와 투자가 늘어날 여지가 생기고, 높이면 물가 상승 압력을 줄이는 데 도움이 될 수 있죠. 하지만 금리 변화가 경제에 전달되기까지는 시간이 걸립니다. 예금, 대출, 주식, 부동산도 서로 다르게 반응할 수 있어요. 뉴스 속 금리 숫자 하나만 보기보다, 왜 바뀌었는지와 내 자산에 어떤 영향을 줄지 함께 살펴보세요.',
   phrase: 'Follow the money', meaning: '돈의 흐름을 따라가다.\n경제 뉴스 속 변화를 읽는 첫걸음이에요.', cta: '오늘의 돈 공부, 저장하고\n다음 이야기에서 또 만나요.', hashtags: ['#금리공부', '#경제상식', '#돈의흐름'],
-  blog: '# 금리가 바뀌면, 내 돈의 흐름도 바뀐다\n\n※ 기능 확인을 위한 샘플 글입니다. 실제 뉴스나 투자 권유가 아닙니다.\n\n## 금리란 무엇일까?\n\n금리는 돈을 빌릴 때 내는 비용이자, 돈을 맡길 때 받는 보상입니다. 은행에 예금을 하면 이자를 받고, 대출을 받으면 이자를 내죠. 금리가 바뀐다는 건 이 비용과 보상의 크기가 달라질 수 있다는 뜻입니다.\n\n## 기준금리가 내 통장까지 오는 과정\n\n중앙은행이 기준금리를 조정하면 금융시장의 자금 조달 비용이 변합니다. 은행도 이를 반영해 예금과 대출 금리를 조정할 수 있습니다. 다만 상품마다 적용 시점과 변화 폭이 다릅니다. 고정금리 대출은 약정에 따라 기존 금리가 유지되고, 변동금리 대출은 정해진 주기에 맞춰 달라질 수 있습니다.\n\n## 금리가 낮아지면 무조건 좋을까?\n\n금리 하락은 대출자의 이자 부담을 줄이는 데 도움이 될 수 있습니다. 반대로 예금으로 얻는 이자는 줄어들 수 있죠. 소비와 투자에도 영향을 미치지만, 결과는 경기와 물가 등 여러 조건에 따라 달라집니다.\n\n## 뉴스 다음으로 확인할 세 가지\n\n첫째, 내 금융상품의 고정·변동금리 여부를 확인해 보세요. 둘째, 금리 변경 주기와 만기일을 살펴보세요. 셋째, 다른 상품과 비교할 때 수수료와 우대 조건도 함께 확인해 보세요.\n\n금리 뉴스는 숫자 하나로 끝나지 않습니다. 왜 변했는지, 그리고 나의 돈에는 어떻게 연결되는지 읽는 연습이 중요합니다.',
-  research: '# 금리 변화 리서치 노트\n\n※ 실제 기사 분석이 아닌 기능 확인용 샘플입니다.\n\n1. 핵심 개념\n금리는 차입 비용과 저축 보상에 영향을 미칩니다. 기준금리 조정이 예금·대출 상품으로 전달되는 시점과 폭은 다를 수 있습니다.\n\n2. 배경\n중앙은행은 물가와 경기 상황 등을 고려해 금리를 결정합니다. 금리 변화가 실물경제에 반영되기까지는 시차가 있습니다.\n\n3. 시사점\n대출자와 예금자의 이해관계가 다를 수 있습니다. 고정금리와 변동금리 상품을 구분하고, 개별 약정과 변경 주기를 확인해야 합니다.\n\n4. 추가 확인할 사항\n• 현재 기준금리 및 최근 결정문: 공식 자료 확인 필요\n• 개별 금융상품의 실제 금리: 금융회사 공시 확인 필요\n• 상품별 수수료와 우대 조건: 약정 확인 필요\n• 다른 자산 가격에 대한 영향: 추가 자료 확인 필요'
 };
 const makeCards = () => ['hook', 'body1', 'body2', 'expression', 'cta'].map((kind, i) => ({ kind, image: '', pos: 50, color1: '#ffffff', color2: '#ffffff', size1: 110, size2: 110, highlight1: false, highlight2: false, align: 'center', id: i }));
 let state = { content: null, cards: makeCards(), palette: 'white', article: null, sample: false, model: 'gpt-5.4-mini', input: '' };
 try {
-  const saved = JSON.parse(localStorage.getItem(STORAGE));
+  const saved = JSON.parse(readStored(STORAGE, '-contents-studio-v1'));
   if (saved?.version === 1 && saved.state && Array.isArray(saved.state.cards) && saved.state.cards.length === 5 && saved.state.cards.every(c => typeof c.image === 'string')) state = { ...state, ...saved.state };
 } catch {}
-let channel = routeChannel(), apiKey = '', serverKey = false, busy = false, controller = null, imageIndex = 0, previewIndex = 0, saveTimer, toastTimer, figmaExporting = false;
-const GPT_KEY_STORAGE = 'ax-openai-key-v1', FIGMA_CONNECTION_STORAGE = 'ax-figma-connection-v1';
+let channel = routeChannel(), apiKey = '', serverKey = false, busy = false, controller = null, imageIndex = 0, previewIndex = 0, selectedCard = 0, saveTimer, toastTimer, figmaExporting = false;
+const GPT_KEY_STORAGE = 'folio-openai-key-v1', FIGMA_CONNECTION_STORAGE = 'folio-figma-connection-v1';
 let figmaConnection = null, figmaStatus = null, figmaPolling = false;
-try { apiKey = localStorage.getItem(GPT_KEY_STORAGE) || ''; } catch {}
-try { const saved = JSON.parse(localStorage.getItem(FIGMA_CONNECTION_STORAGE)); if (saved && /^[a-f0-9]{64}$/.test(saved.id) && /^[a-f0-9]{64}$/.test(saved.token)) figmaConnection = saved; } catch {}
+try { apiKey = readStored(GPT_KEY_STORAGE, '-openai-key-v1') || ''; } catch {}
+try { const saved = JSON.parse(readStored(FIGMA_CONNECTION_STORAGE, '-figma-connection-v1')); if (saved && /^[a-f0-9]{64}$/.test(saved.id) && /^[a-f0-9]{64}$/.test(saved.token)) figmaConnection = saved; } catch {}
 const imageCache = new Map();
 const renderSequence = [0, 0, 0, 0, 0];
 function routeChannel() {
-  if (location.pathname === '/blog') return 'blog';
-  if (location.pathname === '/research') return 'research';
   const d = new URLSearchParams(location.search).get('design');
-  return ({ 'photo-panel': 'awesome', beauty1: 'economic', 'won-money': 'won', 'youtube-thumbnail': 'youtube' })[d] || (CHANNELS[d] ? d : 'awesome');
+  return Object.hasOwn(CHANNELS, d) ? d : 'editorial';
 }
 function persist() {
   clearTimeout(saveTimer);
@@ -43,27 +50,38 @@ function field(id, label, small = false, limit = 0) {
   return `<label class="control-label" for="${id}"><span>${label}</span>${limit ? `<span class="char-count" data-count="${id}">0 / ${limit}</span>` : ''}</label><textarea class="editor-textarea ${small ? 'small' : ''}" id="${id}" ${limit ? `maxlength="${limit === 30 ? 120 : 1000}"` : ''}></textarea>`;
 }
 function buildEditors() {
-  const labels = ['Hook', 'Body 1', 'Body 2', 'Expression', 'CTA'];
+  const labels = ['표지', '핵심 내용', '배경과 맥락', '한 줄 표현', '마무리'];
+  $('#card-tabs').innerHTML = labels.map((label, i) => `<button class="card-tab" id="card-tab-${i}" role="tab" aria-controls="card-panel-${i}" aria-selected="${i === selectedCard}" tabindex="${i === selectedCard ? 0 : -1}" data-select-card="${i}"><canvas id="thumbnail-${i}" width="160" height="200" aria-hidden="true"></canvas><span><b>0${i + 1}</b> ${label}</span></button>`).join('');
   $('#cards-grid').innerHTML = state.cards.map((c, i) => {
     let editor = '';
-    if (i === 0) {
-      editor = field('hook', '헤드라인 (15–25자, 줄바꿈 가능)', true, 30) + '<button class="style-toggle" data-action="styles" data-i="0" aria-expanded="true">제목 글자 스타일 <span>−</span></button><div class="type-settings" id="type-settings">' + [1, 2].map(n => `<div class="style-line"><span>${n === 1 ? '윗줄' : '아랫줄'}</span><input type="color" data-style="color${n}" data-i="0" value="${c['color' + n]}" aria-label="${n === 1 ? '윗줄' : '아랫줄'} 글자색"><input type="number" min="36" max="160" step="2" value="${c['size' + n]}" data-style="size${n}" data-i="0" aria-label="${n === 1 ? '윗줄' : '아랫줄'} 글자 크기"><span>px</span><input type="checkbox" data-style="highlight${n}" data-i="0" ${c['highlight' + n] ? 'checked' : ''} aria-label="${n === 1 ? '윗줄' : '아랫줄'} 배경 강조"><span>강조</span></div>`).join('') + '</div>';
-    }
-    if (i === 1) editor = field('body1', '본문 1 — 팩트 (200–220자)', false, 220);
-    if (i === 2) editor = field('body2', '본문 2 — 배경/원인 (200–220자)', false, 220);
-    if (i === 3) editor = field('phrase', 'Phrase (영문)', true) + field('meaning', 'Meaning (한글)', true);
-    if (i === 4) editor = field('cta', '마지막 한마디', true) + '<label class="control-label">해시태그 (#포함)</label>' + [0, 1, 2].map(n => `<input id="tag-${n}" class="tag-input" aria-label="해시태그 ${n + 1}" maxlength="50" placeholder="#해시태그">`).join('');
-    const position = i === 4 ? `<div class="control-label">이미지 정렬</div><div class="position-control">${['left', 'center', 'right'].map((p, j) => `<button data-action="align" data-value="${p}" data-i="${i}" class="${c.align === p ? 'selected' : ''}">${['왼쪽', '중앙', '오른쪽'][j]}</button>`).join('')}</div>` : `<div class="control-label">사진 좌우 이동</div><div class="position-control"><button data-action="move" data-delta="-10" data-i="${i}" aria-label="${labels[i]} 사진 왼쪽으로">◀</button><span id="position-${i}">중앙</span><button data-action="move" data-delta="10" data-i="${i}" aria-label="${labels[i]} 사진 오른쪽으로">▶</button></div>`;
-    return `<article class="card-column" data-card="${i}"><button class="card-preview" data-action="preview" data-i="${i}" aria-label="${labels[i]} 카드 크게 보기" disabled><canvas id="canvas-${i}" width="1080" height="1350"></canvas><span class="empty-preview"><span>0${i + 1}</span></span><span class="preview-hover">↗</span></button><div class="card-meta"><span><span class="index">0${i + 1}</span>${labels[i].toUpperCase()}</span><button class="mini-download" data-action="download" data-i="${i}" aria-label="${labels[i]} PNG 다운로드" disabled>↓</button></div><button class="image-button" data-action="image" data-i="${i}"><span>▧</span> 이미지 변경 <span>▼</span></button>${position}${editor}<button class="apply-button" data-action="apply" data-i="${i}">${i === 0 ? '제목·색·크기 적용' : 'Apply'}</button></article>`;
+    if (i === 0) editor = field('hook', '제목', true, 30);
+    if (i === 1) editor = field('body1', '핵심 내용', false, 220);
+    if (i === 2) editor = field('body2', '배경과 맥락', false, 220);
+    if (i === 3) editor = field('phrase', '한 줄 표현', true) + field('meaning', '설명', true);
+    if (i === 4) editor = field('cta', '마지막 한마디', true) + '<span class="control-label">해시태그</span>' + [0, 1, 2].map(n => `<input id="tag-${n}" class="tag-input" aria-label="해시태그 ${n + 1}" maxlength="50" placeholder="#해시태그">`).join('');
+    const position = i === 4 ? `<div class="control-label">이미지·문구 정렬</div><div class="position-control">${['left', 'center', 'right'].map((p, j) => `<button data-action="align" data-value="${p}" data-i="${i}" class="${c.align === p ? 'selected' : ''}">${['왼쪽', '중앙', '오른쪽'][j]}</button>`).join('')}</div>` : `<div class="control-label">사진 좌우 이동</div><div class="position-control"><button data-action="move" data-delta="-10" data-i="${i}" aria-label="${labels[i]} 사진 왼쪽으로">←</button><span id="position-${i}">중앙</span><button data-action="move" data-delta="10" data-i="${i}" aria-label="${labels[i]} 사진 오른쪽으로">→</button></div>`;
+    const type = i === 0 ? '<div class="type-settings">' + [1, 2].map(n => `<div class="style-line"><span>${n === 1 ? '윗줄' : '아랫줄'}</span><input type="color" data-style="color${n}" data-i="0" value="${c['color' + n]}" aria-label="${n === 1 ? '윗줄' : '아랫줄'} 글자색"><input type="number" min="36" max="160" step="2" value="${c['size' + n]}" data-style="size${n}" data-i="0" aria-label="${n === 1 ? '윗줄' : '아랫줄'} 글자 크기"><span>px</span><label><input type="checkbox" data-style="highlight${n}" data-i="0" ${c['highlight' + n] ? 'checked' : ''} aria-label="${n === 1 ? '윗줄' : '아랫줄'} 배경 강조"> 강조</label></div>`).join('') + '</div>' : '';
+    return `<article class="card-column" data-card="${i}" id="card-panel-${i}" role="tabpanel" aria-labelledby="card-tab-${i}" ${i === selectedCard ? '' : 'hidden'}><div class="card-stage"><button class="card-preview" data-action="preview" data-i="${i}" aria-label="${labels[i]} 카드 크게 보기" disabled><canvas id="canvas-${i}" width="1080" height="1350"></canvas><span class="preview-hover">크게 보기 ↗</span></button><button class="mini-download text-button" data-action="download" data-i="${i}" aria-label="${labels[i]} PNG 다운로드" disabled>이 카드 다운로드 ↓</button></div><div class="card-editor"><h3><span>0${i + 1}</span> ${labels[i]}</h3>${editor}<button class="image-button" data-action="image" data-i="${i}">사진 바꾸기 <span aria-hidden="true">↗</span></button><details class="card-adjustments"><summary>${i === 0 ? '글자·사진 세부 조정' : '사진 위치 조정'}</summary>${type}${position}</details></div></article>`;
   }).join('');
   syncFields();
+}
+function selectCard(index, focus = false) {
+  selectedCard = index;
+  $$('[data-select-card]').forEach(button => {
+    const active = Number(button.dataset.selectCard) === index;
+    button.setAttribute('aria-selected', active); button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
+  });
+  $$('[data-card]').forEach(panel => panel.hidden = Number(panel.dataset.card) !== index);
 }
 function syncFields() {
   const c = state.content;
   ['hook', 'body1', 'body2', 'phrase', 'meaning', 'cta'].forEach(k => { if ($('#' + k)) $('#' + k).value = c?.[k] || ''; });
   [0, 1, 2].forEach(i => $('#tag-' + i).value = c?.hashtags?.[i] || '');
+  $$('[data-style]').forEach(el => { const value = state.cards[Number(el.dataset.i)][el.dataset.style]; if (el.type === 'checkbox') el.checked = Boolean(value); else el.value = value; });
   updateCounts();
   state.cards.forEach((c, i) => { if (i < 4) $('#position-' + i).textContent = c.pos === 50 ? '중앙' : `${c.pos}%`; });
+  $$('[data-action="align"]').forEach(button => button.classList.toggle('selected', button.dataset.value === state.cards[4].align));
 }
 function updateCounts() {
   ['hook', 'body1', 'body2'].forEach(k => {
@@ -72,32 +90,21 @@ function updateCounts() {
   });
 }
 function setChannel(value, navigate = true) {
-  channel = value;
-  if (navigate) { const anchor = $(`[data-channel="${value}"]`), url = new URL(anchor.getAttribute('href'), location.origin); history.pushState({}, '', url); window.scrollTo(0, 0); }
-  $$('.channel-list a').forEach(a => { a.classList.toggle('active', a.dataset.channel === value); if (a.dataset.channel === value) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-  $('#page-title').textContent = CHANNELS[value][0];
-  const documentMode = ['blog', 'research'].includes(value);
-  $('#cards-section').hidden = documentMode; $('#document-section').hidden = !documentMode;
-  $('#cards-grid').classList.toggle('youtube', value === 'youtube');
-  $('#dimensions').textContent = value === 'youtube' ? '1920 × 1080' : '1080 × 1350';
-  $('#document-label').textContent = value === 'blog' ? 'BLOG DRAFT' : 'RESEARCH NOTE';
-  if (documentMode) syncDocument(); else renderAll();
-}
-function syncDocument() {
-  const ready = Boolean(state.content);
-  $('#document-content').hidden = !ready; $('#document-empty').hidden = ready;
-  $('#document-content').value = state.content?.[channel] || '';
-  $('#download-document').disabled = !ready; $('#copy-document').disabled = !ready;
+  channel = Object.hasOwn(CHANNELS, value) ? value : 'editorial';
+  if (navigate) { const url = new URL(location.href); url.searchParams.set('design', channel); history.pushState({}, '', url); }
+  $('#design-select').value = channel;
+  renderAll();
 }
 function syncHeader() {
-  $('#source-title').textContent = state.article?.title || state.content?.title || '제목 없음';
+  $('#source-title').textContent = state.article?.title || state.content?.title || '다음 이야기를 기다리고 있어요';
   $('#sample-badge').hidden = !state.sample;
   const source = $('#source-link'); const url = state.article?.url;
   source.hidden = !/^https?:\/\//.test(url || ''); source.href = source.hidden ? '#' : url;
   $('#download-zip').disabled = !state.content;
   updateFigmaStatus();
-  $('#footer-status').textContent = state.content ? (state.sample ? '샘플 콘텐츠 · 문구와 사진을 자유롭게 바꿔보세요.' : '카드 5장 · 변경사항이 자동 저장돼요.') : '기사 하나로, 다섯 장의 이야기.';
-  $('#cards-label').textContent = `${channel === 'youtube' ? 'THUMBNAIL' : 'CARDS'} · ${state.palette.toUpperCase()}`;
+  $('#cards-section').hidden = !state.content;
+  document.body.classList.toggle('has-content', Boolean(state.content));
+  $('#start-blank').textContent = state.content ? '직접 편집' : '직접 작성';
   $$('.swatch').forEach(el => { const active = el.dataset.palette === state.palette; el.classList.toggle('active', active); el.setAttribute('aria-pressed', active); });
 }
 function loadImage(src) {
@@ -142,15 +149,10 @@ function headline(ctx, text, x, y, width, defaultColor, scale = 1, height = 420,
     y += textBlock(ctx, paragraphs[i], x, y, width, size, color, 850, 1.2, lineSpace) + 14;
   }
 }
-function drawLogo(ctx, x, y, color = '#fff', size = 40) {
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.moveTo(x, y + size * .3); ctx.lineTo(x + size * .65, y); ctx.lineTo(x + size * .65, y + size * .24); ctx.lineTo(x, y + size * .54); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x, y + size * .52); ctx.lineTo(x + size * .65, y + size * .8); ctx.lineTo(x + size * .65, y + size); ctx.lineTo(x, y + size * .73); ctx.closePath(); ctx.fill();
-}
 function footer(ctx, i, ink, accent, channel = routeChannel()) {
-  ctx.strokeStyle = ink + '25'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(65, 1255); ctx.lineTo(1015, 1255); ctx.stroke();
-  ctx.font = '600 21px Pretendard, sans-serif'; ctx.fillStyle = ink; ctx.fillText(CHANNELS[channel === 'youtube' ? 'awesome' : channel]?.[1] || 'AX CONTENTS LAB', 65, 1290);
-  for (let n = 0; n < 5; n++) { ctx.beginPath(); ctx.arc(890 + n * 27, 1298, n === i ? 5 : 3, 0, Math.PI * 2); ctx.fillStyle = n === i ? accent : ink + '40'; ctx.fill(); }
+  ctx.fillStyle = ink + '25'; ctx.fillRect(64, 1254, 952, 2);
+  textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 1280, 780, 20, ink, 550);
+  textBlock(ctx, `${String(i + 1).padStart(2, '0')} / 05`, 1016, 1280, 160, 20, accent, 650, 1.2, 50, 'right');
 }
 function drawCard(canvas, index, img, options = {}) {
   const { state: renderState = state, channel: renderChannel = channel } = options;
@@ -158,56 +160,83 @@ function drawCard(canvas, index, img, options = {}) {
 }
 function paintCard(canvas, index, img, state, channel, context) {
   const c = state.cards[index], data = state.content;
-  const youtube = channel === 'youtube'; canvas.width = youtube ? 1920 : 1080; canvas.height = youtube ? 1080 : 1350;
+  canvas.width = 1080; canvas.height = 1350;
   const ctx = context || canvas.getContext('2d'); ctx.textBaseline = 'top';
-  if (!data) { ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, canvas.width, canvas.height); return; }
-  const bg = { white: '#ffffff', dark: '#17191d', cream: '#f1ecdf' }[state.palette] || '#fff';
-  const ink = state.palette === 'dark' ? '#f3f2ee' : '#17191d';
-  const accent = channel === 'economic' ? '#3665b4' : channel === 'won' ? '#e25d30' : '#577d99';
+  if (!data) { ctx.fillStyle = '#f0f2e9'; ctx.fillRect(0, 0, canvas.width, canvas.height); return; }
+  const dark = state.palette === 'dark';
+  const bg = { white: '#fffefa', dark: '#202823', cream: '#f0e7d5' }[state.palette] || '#fffefa';
+  const ink = dark ? '#f2f4e9' : '#202823';
+  const accent = channel === 'contrast' ? (dark ? '#c8df9f' : '#596d38') : channel === 'brief' ? (dark ? '#efad83' : '#a55331') : (dark ? '#eda07c' : '#bf5935');
+  const line = dark ? '#f2f4e930' : '#20282325';
+  const label = ['COVER STORY', 'THE ESSENTIALS', 'IN CONTEXT', 'WORDS TO KEEP', 'ONE LAST THING'][index];
   ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (youtube) {
-    imageCover(ctx, img, 0, 0, 1920, 1080, c.pos);
-    const g = ctx.createLinearGradient(0, 0, 1920, 0); g.addColorStop(0, '#070d15f5'); g.addColorStop(.5, '#070d15b8'); g.addColorStop(1, '#070d1510'); ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
-    textBlock(ctx, 'AWESOME MONEY', 100, 90, 1400, 43, '#fff', 750);
-    headline(ctx, data.hook, 100, 300, 1150, '#ffe455', 1.45, 620, state.cards[0]);
-    textBlock(ctx, '경제를 읽는 새로운 시선', 105, 940, 1400, 38, '#fff', 500); return;
-  }
+  // Each layout uses native drawing primitives shared by Canvas and the Figma recorder.
   if (index === 0) {
-    if (channel === 'economic') {
-      imageCover(ctx, img, 0, 0, 1080, 740, c.pos);
-      ctx.fillStyle = '#10294bc9'; ctx.fillRect(0, 0, 1080, 740);
-      textBlock(ctx, 'SEOUL\nECONOMIC', 65, 67, 800, 55, '#fff', 800, 1.15);
-      ctx.fillStyle = accent; ctx.fillRect(65, 800, 80, 8);
-      headline(ctx, data.hook, 65, 855, 950, ink, .78, 340, state.cards[0]); footer(ctx, index, ink, accent, channel); return;
+    if (channel === 'contrast') {
+      ctx.fillStyle = '#253227'; ctx.fillRect(0, 0, 1080, 690);
+
+      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 65, 700, 24, '#e9f0e1', 600);
+      ctx.fillStyle = '#c8df9f'; ctx.fillRect(884, 58, 132, 44);
+      textBlock(ctx, 'ISSUE 01', 901, 68, 110, 20, '#253227', 650);
+      textBlock(ctx, '선명하게, 한 장의 이야기.', 64, 187, 900, 28, '#c8df9f', 550);
+      headline(ctx, data.hook, 64, 286, 952, '#f6f8ee', 1.05, 335, state.cards[0]);
+      textBlock(ctx, '01', 64, 760, 290, 170, accent, 800, 1, 200);
+      textBlock(ctx, 'THE\nSTORY', 68, 1030, 260, 34, ink, 650, 1.25, 130);
+      imageCover(ctx, img, 354, 736, 662, 464, c.pos);
+    } else if (channel === 'brief') {
+      ctx.fillStyle = accent; ctx.fillRect(0, 0, 1080, 121);
+
+      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 44, 750, 27, dark ? '#202823' : '#fffefa', 650);
+      imageCover(ctx, img, 64, 170, 952, 470, c.pos);
+      ctx.fillStyle = accent; ctx.fillRect(64, 685, 62, 5);
+      textBlock(ctx, '오늘의 이야기를 짧고 깊게.', 64, 724, 950, 26, accent, 550);
+      headline(ctx, data.hook, 64, 820, 952, ink, .98, 360, state.cards[0]);
+    } else {
+
+      textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 65, 800, 24, ink, 550);
+      ctx.fillStyle = line; ctx.fillRect(64, 132, 952, 2);
+      textBlock(ctx, '한 편의 생각, 한 장의 기록.', 64, 176, 952, 25, accent, 550);
+      headline(ctx, data.hook, 64, 272, 952, ink, 1, 340, state.cards[0]);
+      imageCover(ctx, img, 64, 686, 952, 514, c.pos);
+      ctx.fillStyle = accent; ctx.fillRect(64, 686, 12, 514);
     }
-    imageCover(ctx, img, 0, 0, 1080, 1350, c.pos);
-    const g = ctx.createLinearGradient(0, 0, 0, 1350); g.addColorStop(0, '#07111e30'); g.addColorStop(.3, '#07111e00'); g.addColorStop(.58, '#07111e70'); g.addColorStop(1, '#07111ef5'); ctx.fillStyle = g; ctx.fillRect(0, 0, 1080, 1350);
-    drawLogo(ctx, 65, 65); textBlock(ctx, channel === 'won' ? 'WON MONEY.ZIP' : 'AWESOME MONEY', 110, 73, 800, 29, '#fff', 800);
-    textBlock(ctx, 'TODAY’S MONEY STORY', 65, 665, 900, 22, '#ffffffb0', 600);
-    headline(ctx, data.hook, 65, 740, 940, '#fff', 1, 420, state.cards[0]);
-    footer(ctx, index, '#ffffff', '#ffe14d', channel); return;
+    footer(ctx, index, ink, accent, channel); return;
   }
+
+  textBlock(ctx, '뉴띵 카드뉴스 자동화', 64, 57, 650, 22, ink, 650);
+  textBlock(ctx, label, 1016, 60, 720, 20, accent, 600, 1.2, 45, 'right');
+  ctx.fillStyle = line; ctx.fillRect(64, 119, 952, 2);
   if (index === 4) {
-    const x = c.align === 'left' ? 70 : c.align === 'right' ? 1010 : 540;
-    imageCover(ctx, img, 0, 0, 1080, 400, c.align === 'left' ? 0 : c.align === 'right' ? 100 : 50);
-    ctx.fillStyle = '#10223355'; ctx.fillRect(0, 0, 1080, 400);
-    textBlock(ctx, CHANNELS[channel]?.[0] || 'AWESOME MONEY', x, 500, 940, 24, accent, 750, 1.4, 100, c.align);
-    textBlock(ctx, data.cta, x, 605, 940, 75, ink, 800, 1.35, 330, c.align);
-    ctx.fillStyle = accent; ctx.fillRect(c.align === 'left' ? 70 : c.align === 'right' ? 910 : 490, 1000, 100, 5);
-    textBlock(ctx, data.hashtags.join('  '), x, 1070, 940, 29, ink, 500, 1.5, 130, c.align); footer(ctx, index, ink, accent, channel); return;
-  }
-  imageCover(ctx, img, 0, 0, 1080, 530, c.pos);
-  const shade = ctx.createLinearGradient(0, 0, 0, 530); shade.addColorStop(0, '#0005'); shade.addColorStop(1, '#0000'); ctx.fillStyle = shade; ctx.fillRect(0, 0, 1080, 530);
-  textBlock(ctx, CHANNELS[channel]?.[0] || 'AWESOME MONEY', 65, 45, 900, 24, '#fff', 750);
-  if (channel === 'won') { ctx.fillStyle = '#e87347'; ctx.fillRect(0, 530, 1080, 12); }
-  textBlock(ctx, `0${index + 1}   /   ${['', 'THE FACT', 'THE CONTEXT', 'MONEY EXPRESSION'][index]}`, 65, 590, 940, 22, accent, 750);
-  if (index === 3) {
-    textBlock(ctx, data.phrase, 65, 700, 940, 88, ink, 850, 1.15, 260);
-    ctx.fillStyle = accent; ctx.fillRect(65, 1010, 65, 4);
-    textBlock(ctx, data.meaning, 65, 1070, 940, 36, ink, 500, 1.5, 155);
+    const x = c.align === 'left' ? 64 : c.align === 'right' ? 1016 : 540;
+    imageCover(ctx, img, 64, 172, 952, 360, c.align === 'left' ? 0 : c.align === 'right' ? 100 : 50);
+    textBlock(ctx, 'KEEP THIS STORY', x, 608, 952, 24, accent, 650, 1.4, 70, c.align);
+    textBlock(ctx, data.cta, x, 704, 952, 75, ink, 750, 1.35, 330, c.align);
+    ctx.fillStyle = accent; ctx.fillRect(c.align === 'left' ? 64 : c.align === 'right' ? 952 : 508, 1090, 64, 4);
+    textBlock(ctx, data.hashtags.join('  '), x, 1130, 952, 28, ink, 500, 1.5, 100, c.align);
+  } else if (index === 3) {
+    imageCover(ctx, img, 626, 177, 390, 375, c.pos);
+    textBlock(ctx, 'Aa', 64, 190, 500, 180, accent, 800, 1.1, 230);
+    textBlock(ctx, 'WORDS\nTO KEEP', 70, 414, 470, 37, ink, 550, 1.25, 120);
+    textBlock(ctx, data.phrase, 64, 645, 952, 94, ink, 800, 1.2, 265);
+    ctx.fillStyle = accent; ctx.fillRect(64, 960, 64, 5);
+    textBlock(ctx, data.meaning, 64, 1020, 952, 38, ink, 500, 1.5, 180);
+  } else if (channel === 'contrast') {
+    ctx.fillStyle = dark ? '#34422d' : '#dfE7cd'; ctx.fillRect(64, 170, 570, 260);
+    textBlock(ctx, `0${index + 1}`, 99, 194, 480, 174, accent, 800, 1.05, 210);
+    imageCover(ctx, img, 674, 170, 342, 260, c.pos);
+    textBlock(ctx, index === 1 ? '이 이야기의 핵심' : '맥락을 읽는 시간', 64, 493, 952, 61, ink, 750, 1.25, 100);
+    ctx.fillStyle = accent; ctx.fillRect(64, 608, 56, 5);
+    textBlock(ctx, data[index === 1 ? 'body1' : 'body2'], 64, 660, 952, 40, ink, 500, 1.6, 540);
+  } else if (channel === 'brief') {
+    imageCover(ctx, img, 64, 170, 952, 345, c.pos);
+    ctx.fillStyle = accent; ctx.fillRect(64, 563, 62, 40);
+    textBlock(ctx, `0${index + 1}`, 79, 570, 45, 23, dark ? '#202823' : '#fffefa', 650);
+    textBlock(ctx, index === 1 ? '꼭 알아둘 사실' : '함께 알아둘 배경', 149, 557, 867, 45, ink, 750, 1.25, 90);
+    textBlock(ctx, data[index === 1 ? 'body1' : 'body2'], 64, 678, 952, 40, ink, 500, 1.6, 520);
   } else {
-    textBlock(ctx, index === 1 ? '지금, 무슨 일이?' : '그래서, 왜 중요할까?', 65, 650, 940, 55, ink, 800, 1.3, 100);
-    textBlock(ctx, data[index === 1 ? 'body1' : 'body2'], 65, 765, 940, 39, ink, 500, 1.58, 440);
+    textBlock(ctx, index === 1 ? '무엇이 달라졌을까' : '조금 더 들여다보면', 64, 185, 952, 61, ink, 750, 1.25, 110);
+    textBlock(ctx, data[index === 1 ? 'body1' : 'body2'], 64, 322, 952, 39, ink, 500, 1.6, 490);
+    imageCover(ctx, img, 64, 872, 952, 328, c.pos);
   }
   footer(ctx, index, ink, accent, channel);
 }
@@ -218,6 +247,7 @@ async function renderOne(i) {
   if (sequence !== renderSequence[i]) return;
   const canvas = $('#canvas-' + i); if (!canvas) return;
   drawCard(canvas, i, img);
+  const thumbnail = $('#thumbnail-' + i); thumbnail.getContext('2d').drawImage(canvas, 0, 0, thumbnail.width, thumbnail.height);
   const column = $(`[data-card="${i}"]`); column.classList.toggle('ready', Boolean(state.content));
   column.querySelector('.card-preview').disabled = !state.content; column.querySelector('.mini-download').disabled = !state.content;
   if ($('#preview-dialog').open && previewIndex === i) drawCard($('#preview-canvas'), i, img);
@@ -227,14 +257,14 @@ function adopt(content, article, sample = false) {
   state.content = content; state.article = article; state.sample = sample;
   const images = sample ? ['/media/city.jpg', '/media/markets.jpg', '/media/desk.jpg', '/media/city.jpg', '/media/desk.jpg'] : article.images || [];
   state.cards = makeCards().map((c, i) => ({ ...c, image: images.length ? (sample ? images[i] : '/api/image?url=' + encodeURIComponent(images[i % images.length])) : '' }));
-  syncFields(); syncHeader(); if (['blog', 'research'].includes(channel)) syncDocument(); renderAll(); persist();
+  syncFields(); selectCard(0); syncHeader(); renderAll(); persist();
 }
 function loadSample() {
   if (busy) return;
   state.input = `${sampleContent.title}\n\n※ 기능 확인용 가상 기사입니다.\n\n${sampleContent.body1}\n\n${sampleContent.body2}`;
   $('#article-input').value = state.input; updateInput();
   adopt(structuredClone(sampleContent), { title: sampleContent.title, text: state.input, url: '', images: [] }, true);
-  showError(''); toast('샘플을 불러왔어요. 문구와 사진을 바꿔보세요.');
+  showError(''); $('#cards-section').scrollIntoView({ block: 'start' }); toast('샘플을 불러왔어요. 문구와 사진을 바꿔보세요.');
 }
 function updateInput() {
   const count = $('#article-input').value.length;
@@ -247,14 +277,16 @@ function updateConnection() {
   $('#connection-label').textContent = apiKey ? 'GPT 키 설정됨' : serverKey ? 'GPT 연결됨' : 'GPT 연결';
   $('#server-key-note').hidden = !serverKey;
 }
-function openSettings() {
+function openSettings(section = 'gpt') {
   $('#api-key').value = apiKey; $('#api-key').type = 'password'; $('#api-key').setCustomValidity(''); $('#show-key').textContent = '보기';
-  $('#model').value = state.model; try { $('#remember-key').checked = Boolean(localStorage.getItem(GPT_KEY_STORAGE)) || !apiKey; } catch { $('#remember-key').checked = false; } $('#settings-dialog').showModal();
+  $('#model').value = state.model; try { $('#remember-key').checked = Boolean(localStorage.getItem(GPT_KEY_STORAGE)) || !apiKey; } catch { $('#remember-key').checked = false; } $('#key-save-status').textContent = ''; $('#settings-dialog').showModal(); refreshFigma();
+  if (section === 'figma') { $('#figma-settings-section').scrollIntoView({ block: 'start' }); if (!figmaConnection) $('#figma-code').focus(); }
+  else $('#settings-dialog').scrollTop = 0;
 }
 async function generateContent() {
   if (busy || !$('#article-input').value.trim()) return;
-  if (!apiKey && !serverKey) { showError('GPT 연결이 필요해요. API 키를 연결하거나 ‘샘플로 시작’으로 체험해 보세요.'); openSettings(); return; }
-  busy = true; updateInput(); controller = new AbortController(); showError(''); $('#progress').hidden = false; $('#sample').disabled = true;
+  if (!apiKey && !serverKey) { showError('설정에서 GPT API 키를 등록해 주세요. 키 없이 ‘샘플 보기’로 체험할 수도 있어요.'); openSettings(); return; }
+  busy = true; updateInput(); controller = new AbortController(); showError(''); $('#progress').hidden = false; $('#sample').disabled = true; $('#start-blank').disabled = true;
   $('#generate').textContent = '생성 중…'; $('#progress-text').textContent = /^https?:/.test($('#article-input').value.trim()) ? '기사를 읽고 카드 문구를 만들고 있어요…' : '다섯 장의 이야기를 만들고 있어요…';
   const timeout = setTimeout(() => controller.abort('timeout'), 110000);
   try {
@@ -264,15 +296,14 @@ async function generateContent() {
     catch { throw new Error(response.status === 429 ? '무료 서버의 오늘 요청 한도에 도달했어요. 한도가 복구된 뒤 다시 시도해 주세요.' : '서버 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.'); }
     if (!response.ok) throw new Error(data.error || '생성을 완료하지 못했어요. 다시 시도해 주세요.');
     adopt(data.content, data.article, false); toast('카드 문구가 준비됐어요. 자유롭게 편집해 보세요.');
-    if (data.usage) $('#footer-status').textContent = `입력 ${data.usage.input_tokens.toLocaleString()} · 출력 ${data.usage.output_tokens.toLocaleString()} tokens`;
+    $('#cards-section').scrollIntoView({ block: 'start' });
   } catch (error) { if (controller.signal.aborted) showError(controller.signal.reason === 'timeout' ? '응답 시간이 길어져서 멈췄어요. 잠시 후 다시 시도해 주세요.' : '생성을 취소했어요. 이미 처리된 API 요청에는 비용이 발생할 수 있어요.'); else showError(error.message); }
-  finally { clearTimeout(timeout); busy = false; controller = null; $('#progress').hidden = true; $('#sample').disabled = false; $('#generate').innerHTML = 'Generate <span>↗</span>'; updateInput(); }
+  finally { clearTimeout(timeout); busy = false; controller = null; $('#progress').hidden = true; $('#sample').disabled = false; $('#start-blank').disabled = false; $('#generate').innerHTML = '카드뉴스 만들기 <span aria-hidden="true">→</span>'; updateInput(); }
 }
 async function openPreview(i) {
   previewIndex = i; await renderOne(i);
   drawCard($('#preview-canvas'), i, await loadImage(state.cards[i].image));
-  $('#preview-title').textContent = `${String(i + 1).padStart(2, '0')} / ${channel === 'youtube' ? '01' : '05'}`;
-  $('.preview-frame').style.aspectRatio = channel === 'youtube' ? '16/9' : '4/5';
+  $('#preview-title').textContent = `${String(i + 1).padStart(2, '0')} / 05`;
   if (!$('#preview-dialog').open) $('#preview-dialog').showModal();
 }
 async function canvasBytes(i) {
@@ -286,7 +317,7 @@ function download(blob, name) {
 }
 async function downloadCard(i) {
   if (!state.content) return;
-  try { download(new Blob([await canvasBytes(i)], { type: 'image/png' }), `ax-${channel}-${i + 1}.png`); toast('PNG 이미지를 저장했어요.'); }
+  try { download(new Blob([await canvasBytes(i)], { type: 'image/png' }), `뉴띵-카드뉴스-${channel}-${i + 1}.png`); toast('PNG 이미지를 저장했어요.'); }
   catch (error) { showError(error.message); }
 }
 // ZIP STORE format: each PNG is already compressed; no external library needed.
@@ -307,20 +338,19 @@ async function downloadZip() {
   if (!state.content) return;
   const button = $('#download-zip'); button.disabled = true; button.textContent = '저장 중…';
   try {
-    const indices = channel === 'youtube' ? [0] : [0, 1, 2, 3, 4], files = [];
+    const indices = [0, 1, 2, 3, 4], files = [];
     for (const i of indices) files.push({ name: `${String(i + 1).padStart(2, '0')}-${state.cards[i].kind}.png`, bytes: await canvasBytes(i) });
     files.push({ name: 'caption.txt', bytes: new TextEncoder().encode(`${state.content.title}\n\n${state.content.body1}\n\n${state.content.body2}\n\n${state.content.hashtags.join(' ')}${state.article?.url ? '\n\n출처: ' + state.article.url : ''}${state.sample ? '\n\n기능 확인용 가상 기사입니다.' : ''}`) });
-    download(makeZip(files), `ax-${channel}-cards.zip`); toast('카드와 캡션을 ZIP으로 저장했어요.');
+    download(makeZip(files), `뉴띵-카드뉴스-${channel}-cards.zip`); toast('카드와 캡션을 ZIP으로 저장했어요.');
   } catch (error) { showError(error.message); }
-  finally { button.disabled = false; button.innerHTML = '<span class="download-icon">↓</span> ZIP 다운로드'; }
+  finally { button.disabled = false; button.innerHTML = '전체 다운로드 <span aria-hidden="true">↓</span>'; }
 }
 function updateFigmaStatus() {
   const connected = Boolean(figmaConnection), info = figmaStatus;
-  $('#figma-account').textContent = connected ? (info?.user?.name || figmaConnection.user?.name || '연결된 계정') : 'Figma 계정 미연결';
-  $('#figma-destination').textContent = connected && info?.online ? `${info.destination.file} / ${info.destination.page}` : connected ? '받을 파일에서 AX Contents Studio 플러그인을 열어 주세요.' : '처음 한 번 계정을 연결하면 파일 없이 전송할 수 있어요.';
+  $('#figma-account').textContent = connected ? (info?.user?.name || figmaConnection.user?.name || '연결된 계정') : '연결 안 됨';
+  $('#figma-destination').textContent = connected && info?.online ? `${info.destination.file} / ${info.destination.page}` : connected ? '받을 파일에서 뉴띵 카드뉴스 자동화 플러그인을 열어 주세요.' : '카드를 편집 가능한 Figma 레이어로 보내요.';
   $('#figma-unlink').hidden = !connected;
   $('#figma-pair-form').hidden = connected;
-  $('#figma-connection-label').textContent = connected ? (info?.online ? 'Figma 연결됨' : 'Figma 계정 등록됨') : 'Figma 계정 연결';
   const job = info?.job;
   $('#figma-unlink').disabled = figmaExporting || Boolean(job && ['uploading','queued','processing'].includes(job.state));
   const statuses = { uploading: '사진·문구 전송 중…', queued: 'Figma 수신 대기 중…', processing: 'Figma에서 카드 제작 중…', done: `${job?.count || 0}장 제작 완료`, cancelled: '전송 취소됨', error: job?.error || '전송 실패' };
@@ -331,7 +361,7 @@ async function refreshFigma() {
   if (!figmaConnection || figmaPolling) return;
   figmaPolling = true; const current = figmaConnection;
   try {
-    const result = await AXFigmaClient.request(current, { action: 'status' });
+    const result = await FolioFigmaClient.request(current, { action: 'status' });
     if (figmaConnection !== current) return;
     figmaStatus = result; updateFigmaStatus();
   } catch (error) {
@@ -343,16 +373,16 @@ async function refreshFigma() {
 }
 async function downloadFigma() {
   if (!state.content || figmaExporting) return;
-  if (!figmaConnection) { $('#figma-dialog').showModal(); return; }
+  if (!figmaConnection) { openSettings('figma'); return; }
   const snapshot = structuredClone(state), selectedChannel = channel, connection = figmaConnection;
   figmaExporting = true; $('#download-figma').disabled = true; showError('');
   const progress = text => $('#figma-transfer-status').textContent = text;
   try {
-    const destination = await AXFigmaClient.request(connection, { action: 'status' });
-    if (!destination.online) throw new Error('받을 Figma 파일에서 AX Contents Studio 플러그인을 열어 주세요.');
+    const destination = await FolioFigmaClient.request(connection, { action: 'status' });
+    if (!destination.online) throw new Error('받을 Figma 파일에서 뉴띵 카드뉴스 자동화 플러그인을 열어 주세요.');
     progress('Figma에 보낼 카드 준비 중…');
-    const bundle = await AXFigma.createBundle({ snapshot, channel: selectedChannel, loadImage, drawCard });
-    await AXFigmaClient.send(connection, bundle, destination, $('#figma-arrangement').value, progress);
+    const bundle = await FolioFigma.createBundle({ snapshot, channel: selectedChannel, loadImage, drawCard });
+    await FolioFigmaClient.send(connection, bundle, destination, $('#figma-arrangement').value, progress);
     progress('Figma에서 카드를 만들고 있어요…');
     toast('Figma로 보냈어요. 제작 완료 상태가 여기에 표시돼요.');
   } catch (error) { showError(error.message); progress(error.message); }
@@ -367,8 +397,8 @@ async function downloadFigmaPlugin() {
       if (!response.ok) throw new Error('플러그인을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
       return { name, text: await response.text() };
     }));
-    const files = AXFigmaPackage.configure(source, location.origin).map(file => ({ name: 'ax-contents-figma/' + file.name, bytes: new TextEncoder().encode(file.text) }));
-    download(makeZip(files), 'ax-contents-figma-plugin.zip');
+    const files = FolioFigmaPackage.configure(source, location.origin).map(file => ({ name: '뉴띵-카드뉴스-figma/' + file.name, bytes: new TextEncoder().encode(file.text) }));
+    download(makeZip(files), '뉴띵-카드뉴스-figma-plugin.zip');
     $('#figma-help-status').textContent = '이 스튜디오에 자동 연결되는 플러그인이에요. 처음 한 번 manifest.json을 등록해 주세요.';
   } catch (error) { $('#figma-help-status').textContent = error.message; }
   finally { button.disabled = false; }
@@ -392,27 +422,36 @@ $('#cards-grid').addEventListener('click', async event => {
   if (button.dataset.action === 'image') { imageIndex = i; $('#image-error').textContent = ''; $('#image-url').value = ''; $('#image-dialog').showModal(); }
   if (button.dataset.action === 'move') { c.pos = Math.max(0, Math.min(100, c.pos + Number(button.dataset.delta))); $('#position-' + i).textContent = c.pos === 50 ? '중앙' : `${c.pos}%`; renderOne(i); persist(); }
   if (button.dataset.action === 'align') { c.align = button.dataset.value; button.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('selected', b === button)); renderOne(i); persist(); }
-  if (button.dataset.action === 'apply') { if (!state.content) return toast('샘플을 불러오거나 기사를 먼저 생성해 주세요.'); await renderOne(i); persist(); toast('카드에 적용했어요.'); }
-  if (button.dataset.action === 'styles') { const panel = $('#type-settings'); panel.hidden = !panel.hidden; button.setAttribute('aria-expanded', !panel.hidden); button.lastElementChild.textContent = panel.hidden ? '+' : '−'; }
 });
 $('#cards-grid').addEventListener('input', event => {
   const el = event.target;
   if (el.dataset.style) { const prop = el.dataset.style; state.cards[0][prop] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Math.max(36, Math.min(160, Number(el.value) || 110)) : el.value; renderOne(0); persist(); return; }
   const firstEdit = !state.content;
-  if (firstEdit) { state.content = { title: '직접 만든 카드뉴스', hook: '', body1: '', body2: '', phrase: '', meaning: '', cta: '', hashtags: ['', '', ''], blog: '', research: '' }; state.sample = false; }
+  if (firstEdit) { state.content = { title: '직접 만든 카드뉴스', hook: '', body1: '', body2: '', phrase: '', meaning: '', cta: '', hashtags: ['', '', ''] }; state.sample = false; }
   const mapping = { hook: 0, body1: 1, body2: 2, phrase: 3, meaning: 3, cta: 4 };
   if (el.id.startsWith('tag-')) state.content.hashtags[Number(el.id.slice(-1))] = el.value;
   else if (el.id in mapping) state.content[el.id] = el.value;
   updateCounts(); syncHeader(); if (firstEdit) renderAll(); else renderOne(el.id.startsWith('tag-') ? 4 : mapping[el.id] ?? 0); persist();
 });
-$$('[data-channel]').forEach(a => a.addEventListener('click', event => { event.preventDefault(); setChannel(a.dataset.channel); }));
+$('#design-select').addEventListener('change', event => setChannel(event.target.value));
 window.addEventListener('popstate', () => setChannel(routeChannel(), false));
-$('#collapse').addEventListener('click', () => { document.body.classList.toggle('collapsed'); const c = document.body.classList.contains('collapsed'); $('#collapse').textContent = c ? '»' : '«'; $('#collapse').setAttribute('aria-label', c ? '사이드바 펼치기' : '사이드바 접기'); });
+$('#card-tabs').addEventListener('click', event => { const tab = event.target.closest('[data-select-card]'); if (tab) selectCard(Number(tab.dataset.selectCard)); });
+$('#card-tabs').addEventListener('keydown', event => {
+  const keys = { ArrowRight: (selectedCard + 1) % 5, ArrowLeft: (selectedCard + 4) % 5, Home: 0, End: 4 };
+  if (Object.hasOwn(keys, event.key)) { event.preventDefault(); selectCard(keys[event.key], true); }
+});
+$('#start-blank').addEventListener('click', () => {
+  if (busy) return;
+  if (!state.content) adopt({ title: '직접 만든 카드뉴스', hook: '', body1: '', body2: '', phrase: '', meaning: '', cta: '', hashtags: ['', '', ''] }, { title: '직접 만든 카드뉴스', images: [] });
+  $('#cards-section').scrollIntoView({ block: 'start' }); $(`[data-card="${selectedCard}"] textarea`).focus({ preventScroll: true });
+});
+document.addEventListener('click', event => { if (!event.target.closest('#more-options')) $('#more-options').open = false; });
+$('#more-options').addEventListener('keydown', event => { if (event.key === 'Escape') { $('#more-options').open = false; $('#more-options summary').focus(); } });
 $('#article-input').addEventListener('input', () => { state.input = $('#article-input').value; updateInput(); persist(); });
 $('#article-input').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); generateContent(); } });
 $('#sample').addEventListener('click', loadSample); $('#generate').addEventListener('click', generateContent);
 $('#cancel-generate').addEventListener('click', () => controller?.abort('cancel'));
-['#settings', '#settings-side', '#settings-onboard'].forEach(s => $(s).addEventListener('click', openSettings));
+$('#settings').addEventListener('click', () => openSettings());
 $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).close()));
 $$('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target !== dialog) return; const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); }));
 $('#show-key').addEventListener('click', () => { const hidden = $('#api-key').type === 'password'; $('#api-key').type = hidden ? 'text' : 'password'; $('#show-key').textContent = hidden ? '숨기기' : '보기'; });
@@ -427,20 +466,18 @@ $('#settings-form').addEventListener('submit', e => {
   apiKey = key; let saved = true;
   try { if ($('#remember-key').checked && key) localStorage.setItem(GPT_KEY_STORAGE, key); else localStorage.removeItem(GPT_KEY_STORAGE); }
   catch { saved = false; }
-  state.model = $('#model').value; updateConnection(); persist(); $('#settings-dialog').close();
-  toast(!saved ? '키는 이번 탭에서 사용할 수 있지만 브라우저에 저장하지 못했어요.' : apiKey || serverKey ? '키를 적용했어요. Generate를 누르면 실제 API 요청을 진행해요.' : '모델 설정을 저장했어요.');
+  state.model = $('#model').value; updateConnection(); persist();
+  $('#key-save-status').textContent = !saved ? '키는 이번 탭에서 사용할 수 있지만 브라우저에 저장하지 못했어요.' : apiKey || serverKey ? '키를 적용했어요. 카드뉴스 만들기를 누르면 실제 API 요청을 진행해요.' : '모델 설정을 저장했어요.';
 });
-$('#disconnect').addEventListener('click', () => { apiKey = ''; try { localStorage.removeItem(GPT_KEY_STORAGE); } catch {} $('#api-key').value = ''; updateConnection(); $('#settings-dialog').close(); toast(serverKey ? '개인 키를 해제했어요. 서버 연결은 유지돼요.' : 'GPT 연결을 해제했어요.'); });
+$('#disconnect').addEventListener('click', () => { apiKey = ''; try { localStorage.removeItem(GPT_KEY_STORAGE); } catch {} $('#api-key').value = ''; updateConnection(); $('#key-save-status').textContent = serverKey ? '개인 키를 해제했어요. 서버 연결은 유지돼요.' : 'GPT 연결을 해제했어요.'; });
 $$('[data-palette]').forEach(b => b.addEventListener('click', () => { state.palette = b.dataset.palette; renderAll(); persist(); }));
 $('#download-zip').addEventListener('click', downloadZip);
 $('#download-figma').addEventListener('click', downloadFigma);
-$('#figma-help').addEventListener('click', () => { $('#figma-dialog').showModal(); refreshFigma(); });
-$('#figma-settings').addEventListener('click', () => { $('#figma-dialog').showModal(); refreshFigma(); });
 $('#figma-pair-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = $('#figma-pair-button'); button.disabled = true; $('#figma-pair-error').textContent = '';
-  const token = AXFigmaClient.token(), code = $('#figma-code').value.replace(/[\s-]/g,'').toUpperCase();
+  const token = FolioFigmaClient.token(), code = $('#figma-code').value.replace(/[\s-]/g,'').toUpperCase();
   try {
-    const result = await AXFigmaClient.request(null, { action: 'pair', token, code });
+    const result = await FolioFigmaClient.request(null, { action: 'pair', token, code });
     const connected = { id: result.id, token, user: result.user };
     try { localStorage.setItem(FIGMA_CONNECTION_STORAGE, JSON.stringify(connected)); } catch { $('#figma-pair-error').textContent = '연결은 완료됐지만 저장 공간이 없어 다음 실행에 다시 연결해야 해요.'; }
     figmaConnection = connected; figmaStatus = result; $('#figma-code').value = ''; updateFigmaStatus(); toast('Figma 계정을 등록했어요.');
@@ -449,14 +486,14 @@ $('#figma-pair-form').addEventListener('submit', async event => {
 });
 $('#figma-unlink').addEventListener('click', async () => {
   if (!figmaConnection || $('#figma-unlink').disabled) return;
-  try { await AXFigmaClient.request(figmaConnection, { action: 'disconnect' }); figmaConnection = null; figmaStatus = null; try { localStorage.removeItem(FIGMA_CONNECTION_STORAGE); } catch {} $('#figma-transfer-status').textContent = ''; updateFigmaStatus(); }
+  try { await FolioFigmaClient.request(figmaConnection, { action: 'disconnect' }); figmaConnection = null; figmaStatus = null; try { localStorage.removeItem(FIGMA_CONNECTION_STORAGE); } catch {} $('#figma-transfer-status').textContent = ''; updateFigmaStatus(); }
   catch (error) { $('#figma-pair-error').textContent = error.message; }
 });
 $('#download-figma-plugin').addEventListener('click', downloadFigmaPlugin);
-$('#preview-prev').addEventListener('click', () => openPreview(channel === 'youtube' ? 0 : (previewIndex + 4) % 5));
-$('#preview-next').addEventListener('click', () => openPreview(channel === 'youtube' ? 0 : (previewIndex + 1) % 5));
+$('#preview-prev').addEventListener('click', () => openPreview((previewIndex + 4) % 5));
+$('#preview-next').addEventListener('click', () => openPreview((previewIndex + 1) % 5));
 $('#preview-download').addEventListener('click', () => downloadCard(previewIndex));
-$('#preview-dialog').addEventListener('keydown', e => { if (e.key === 'ArrowRight') openPreview(channel === 'youtube' ? 0 : (previewIndex + 1) % 5); if (e.key === 'ArrowLeft') openPreview(channel === 'youtube' ? 0 : (previewIndex + 4) % 5); });
+$('#preview-dialog').addEventListener('keydown', e => { if (e.key === 'ArrowRight') openPreview((previewIndex + 1) % 5); if (e.key === 'ArrowLeft') openPreview((previewIndex + 4) % 5); });
 $('#image-file').addEventListener('change', e => uploadFile(e.target.files[0]));
 const dropZone = $('.upload-area');
 ['dragenter', 'dragover'].forEach(name => dropZone.addEventListener(name, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
@@ -468,9 +505,6 @@ $('#image-url-form').addEventListener('submit', async e => {
   try { const src = '/api/image?url=' + encodeURIComponent($('#image-url').value.trim()); const response = await fetch(src); if (!response.ok) { const d = await response.json(); throw new Error(d.error || '이미지를 불러오지 못했어요.'); } const blob = await response.blob(); await uploadFile(new File([blob], 'remote-photo', { type: blob.type })); }
   catch (error) { $('#image-error').textContent = error.message; } finally { button.disabled = false; }
 });
-$('#document-content').addEventListener('input', () => { if (state.content) { state.content[channel] = $('#document-content').value; persist(); } });
-$('#copy-document').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#document-content').value); toast('클립보드에 복사했어요.'); } catch { $('#document-content').select(); toast('텍스트를 선택했어요. 복사 단축키를 눌러주세요.'); } });
-$('#download-document').addEventListener('click', () => download(new Blob(['\ufeff' + $('#document-content').value], { type: 'text/plain;charset=utf-8' }), `ax-${channel}.txt`));
 $('#article-input').value = state.input || ''; buildEditors(); setChannel(channel, false); updateInput(); updateConnection();
 fetch('/api/config').then(r => r.json()).then(config => { serverKey = config.configured; if (!state.model) state.model = config.model; updateConnection(); }).catch(() => {});
 

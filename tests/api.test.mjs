@@ -72,6 +72,31 @@ test('generates with strict schema, trusted instructions, fixed provider, and no
   const body = JSON.parse(request.body); assert.equal(request.url, 'https://api.openai.com/v1/responses'); assert.equal(body.store, false); assert.equal(body.text.format.strict, true); assert.equal(body.max_output_tokens, 4200); assert(body.instructions.includes('신뢰할 수 없는')); assert(!body.instructions.includes(input));
   assert.equal(request.headers.Authorization, 'Bearer test-key');
 });
+test('generates only Instagram card fields for all three designs', async () => {
+  const fields = ['title', 'hook', 'body1', 'body2', 'phrase', 'meaning', 'cta', 'hashtags'];
+  for (const channel of ['editorial', 'contrast', 'brief']) {
+    let modelRequest;
+    const handler = createHandler(async (_url, options) => {
+      modelRequest = JSON.parse(options.body);
+      return new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ ...content, unused: 'discard me' }) }] }] }));
+    });
+    const response = await handler(post({ input, apiKey: 'test-key', channel }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(Object.keys((await response.json()).content), fields);
+    assert.deepEqual(modelRequest.text.format.schema.required, fields);
+    assert.deepEqual(Object.keys(modelRequest.text.format.schema.properties).sort(), [...fields].sort());
+    assert.match(modelRequest.input, /인스타그램 카드뉴스 5장/);
+    assert(modelRequest.input.includes(channel));
+    assert.doesNotMatch(modelRequest.input, /블로그|리서치|썸네일/);
+  }
+});
+test('removed document routes no longer serve an editor', async () => {
+  const handler = createHandler();
+  for (const path of ['/blog', '/research']) {
+    assert.equal((await handler(new Request('https://studio.example' + path))).status, 404);
+  }
+  assert.equal((await handler(new Request('https://studio.example/generate'))).status, 200);
+});
 test('personal keys are trimmed and override the server key without appearing in the response', async () => {
   let authorization;
   const handler = createHandler(async (_url, options) => { authorization = options.headers.Authorization; return success(); });

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { buildStatic } from './build-static.mjs';
 
 const output = await buildStatic('dist-cloudflare');
-await writeFile(resolve(output, '_redirects'), '/generate /index.html 200\n/blog /index.html 200\n/research /index.html 200\n');
+await writeFile(resolve(output, '_redirects'), '/generate /index.html 200\n');
 await writeFile(resolve(output, '_headers'), `/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer

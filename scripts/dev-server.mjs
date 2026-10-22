@@ -8,7 +8,7 @@ import { createFigmaRelay } from '../worker/figma-relay.mjs';
 const relayStore = createLocalRelayStore(resolve(import.meta.dirname, '../.data/figma-relay.sqlite'));
 const relay = createFigmaRelay(relayStore);
 const entry = resolve(import.meta.dirname, '../worker/index.js');
-const port = Number(process.env.AXSTUDIO_PORT || 4177);
+const port = Number(process.env.FOLIO_PORT || 4177);
 let modified, worker;
 const server = http.createServer(async (req, res) => {
   try {

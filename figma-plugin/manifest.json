@@ -1,6 +1,6 @@
 {
-  "name": "AX Contents Studio",
-  "id": "ax-contents-studio-local",
+  "name": "뉴띵 카드뉴스 자동화",
+  "id": "folio-studio-local",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",

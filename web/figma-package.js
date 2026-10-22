@@ -1,5 +1,5 @@
 'use strict';
-globalThis.AXFigmaPackage = {
+globalThis.FolioFigmaPackage = {
   configure(files, address) {
     const url = new URL(address);
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
@@ -12,7 +12,7 @@ globalThis.AXFigmaPackage = {
         manifest.networkAccess = local ? { allowedDomains: ['none'], devAllowedDomains: [origin] } : { allowedDomains: [origin] };
         text = JSON.stringify(manifest, null, 2);
       }
-      if (file.name === 'ui.html') text = text.replace(/(<meta name="ax-studio-origin" content=")[^"]*(">)/, '$1' + origin + '$2');
+      if (file.name === 'ui.html') text = text.replace(/(<meta name="folio-studio-origin" content=")[^"]*(">)/, '$1' + origin + '$2');
       return { name: file.name, text };
     });
   }

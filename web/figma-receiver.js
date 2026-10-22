@@ -1,10 +1,10 @@
 'use strict';
-const client = AXFigmaClient, $ = s => document.querySelector(s);
+const client = FolioFigmaClient, $ = s => document.querySelector(s);
 const instance = client.token();
 let session = '', context = null, connection = null, timer, running = false, inFlight = null, creation = false, initialized = false, retryDelay = 0;
 const handled = new Map();
 function status(message, error = false) { $('#status').textContent = message; $('#status').classList.toggle('error', error); }
-function host(action, data = {}) { parent.postMessage({ type: 'ax-receiver', session, action, ...data }, '*'); }
+function host(action, data = {}) { parent.postMessage({ type: 'folio-receiver', session, action, ...data }, '*'); }
 function showContext() { $('#account').textContent = context?.user ? context.user.name + ' 님으로 연결' : 'Figma에 로그인해 주세요.'; $('#destination').textContent = context?.destination.file || '파일 이름 없음'; $('#page').textContent = context?.destination.page || ''; }
 async function createConnection() {
  if (creation || !context?.user) return;
@@ -49,7 +49,7 @@ async function poll() {
     const raw = parts.join(''); if (await client.digest(raw) !== job.digest) throw new Error('전송된 내용이 일치하지 않아요. 웹앱에서 다시 보내 주세요.');
     host('import', { raw, requestId: job.id, targetPageId: job.pageId, arrangement: job.arrangement });
    } catch (error) { await complete({ error: error.message }); }
-  } else if (!inFlight && data.paired) status(data.job?.state === 'error' ? data.job.error : data.job?.state === 'done' ? `${data.job.count}장 제작 완료 · 다음 전송을 기다리고 있어요.` : '연결됨 · 웹앱에서 “Figma에서 제작”을 누르세요.', data.job?.state === 'error');
+  } else if (!inFlight && data.paired) status(data.job?.state === 'error' ? data.job.error : data.job?.state === 'done' ? `${data.job.count}장 제작 완료 · 다음 전송을 기다리고 있어요.` : '연결됨 · 웹앱에서 “더 보기 → Figma로 보내기”을 누르세요.', data.job?.state === 'error');
  } catch (error) {
   status(error.message, true);
   retryDelay = Math.min(300000, Math.max(30000, retryDelay * 2));
@@ -58,7 +58,7 @@ async function poll() {
 }
 window.addEventListener('message', event => {
  const msg = event.data;
- if (event.source !== parent || msg?.type !== 'ax-receiver-host' || !/^[a-f0-9]{32}$/.test(msg.session || '')) return;
+ if (event.source !== parent || msg?.type !== 'folio-receiver-host' || !/^[a-f0-9]{32}$/.test(msg.session || '')) return;
  if (session && session !== msg.session) return;
  session = msg.session;
  if (msg.action === 'context') {
@@ -75,5 +75,5 @@ $('#disconnect').addEventListener('click', async () => {
  if (inFlight) return status('제작이 완료된 뒤 연결을 해제해 주세요.', true);
  try { if (connection) await client.request(connection, { action: 'disconnect' }); connection = null; clearTimeout(timer); host('save-connection', { connection: null }); $('#pairing').hidden = true; $('#disconnect').hidden = true; $('#reconnect').hidden = false; status('계정 연결을 해제했어요.'); } catch (error) { status(error.message,true); }
 });
-if (parent !== window) parent.postMessage({ type: 'ax-receiver-loaded' }, '*');
+if (parent !== window) parent.postMessage({ type: 'folio-receiver-loaded' }, '*');
 else status('이 화면은 Figma 플러그인에서 열어 주세요.', true);

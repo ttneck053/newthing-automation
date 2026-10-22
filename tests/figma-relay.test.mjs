@@ -79,7 +79,7 @@ test('rejects cross-origin requests and limits anonymous pairing attempts', asyn
   assert.equal((await s.request({ action: 'create', user })).status, 429);
 });
 test('SQLite relay persists across instances and performs compare-and-set atomically', async () => {
-  const file = join(mkdtempSync(join(tmpdir(), 'ax-relay-')), 'relay.sqlite');
+  const file = join(mkdtempSync(join(tmpdir(), 'folio-relay-')), 'relay.sqlite');
   const first = createLocalRelayStore(file), second = createLocalRelayStore(file);
   await first.set('test', 'before', 60); assert.equal(await second.get('test'), 'before');
   assert.equal(await second.cas('test', 'wrong', 'bad', 60), false);
@@ -119,16 +119,16 @@ test('D1 free quota failures are recoverable errors with no external paid-store 
 test('downloaded plugin connects only to the source studio origin', () => {
   const ctx = vm.createContext({ URL }); vm.runInContext(readFileSync(new URL('../web/figma-package.js', import.meta.url), 'utf8'), ctx);
   const files = ['manifest.json', 'ui.html'].map(name => ({ name, text: readFileSync(new URL('../figma-plugin/' + name, import.meta.url), 'utf8') }));
-  const result = ctx.AXFigmaPackage.configure(files, 'https://studio.example/path?secret=omit');
+  const result = ctx.FolioFigmaPackage.configure(files, 'https://studio.example/path?secret=omit');
   assert.deepEqual(JSON.parse(result[0].text).networkAccess.allowedDomains, ['https://studio.example']);
   assert(result[1].text.includes('content="https://studio.example"')); assert(!result[1].text.includes('secret=omit'));
-  assert.throws(() => ctx.AXFigmaPackage.configure(files, 'http://public.example'));
+  assert.throws(() => ctx.FolioFigmaPackage.configure(files, 'http://public.example'));
 });
 test('sandbox checksum matches SHA-256 for Unicode, padding boundaries, and large photos', async () => {
   const ctx = vm.createContext({ crypto: {}, TextEncoder });
   vm.runInContext(readFileSync(new URL('../web/figma-client.js', import.meta.url), 'utf8'), ctx);
   for (const text of ['', 'abc', '카드뉴스 🎨', ...[55,56,63,64,65,200000,4400000].map(n=>'a'.repeat(n))]) {
-    assert.equal(await ctx.AXFigmaClient.digest(text), createHash('sha256').update(text).digest('hex'));
+    assert.equal(await ctx.FolioFigmaClient.digest(text), createHash('sha256').update(text).digest('hex'));
   }
 });
 test('returns input errors for malformed JSON and invalid account data', async () => {
@@ -146,7 +146,7 @@ test('receiver recovers a lost completion reply without blocking the next transf
   const ctx = vm.createContext({
     parent, setTimeout:()=>1, clearTimeout:()=>{},
     document:{querySelector:selector=>{if (!elements.has(selector)) elements.set(selector,{textContent:'',hidden:false,classList:{toggle:()=>{}},addEventListener:()=>{}});return elements.get(selector);}},
-    AXFigmaClient:{token:()=>token('b'),digest:async()=>'checksum',request:async(_connection,body)=>{
+    FolioFigmaClient:{token:()=>token('b'),digest:async()=>'checksum',request:async(_connection,body)=>{
       if (body.action==='poll') return {paired:true,job:{...job,state,count:5},transfer:state==='processing'?job:null};
       if (body.action==='read') return {text:'{}'};
       if (body.action==='complete') { state='done'; throw new Error('lost reply'); }
@@ -154,7 +154,7 @@ test('receiver recovers a lost completion reply without blocking the next transf
   });
   ctx.window = {addEventListener:(name,fn)=>listeners[name]=fn};
   vm.runInContext(readFileSync(new URL('../web/figma-receiver.js', import.meta.url), 'utf8'), ctx);
-  listeners.message({source:parent,data:{type:'ax-receiver-host',session:'a'.repeat(32),action:'context',context:{user,destination:{pageId:'page1'}},connection:{id:token('e'),token:token('f')}}});
+  listeners.message({source:parent,data:{type:'folio-receiver-host',session:'a'.repeat(32),action:'context',context:{user,destination:{pageId:'page1'}},connection:{id:token('e'),token:token('f')}}});
   await vm.runInContext('poll()',ctx); assert.equal(imports.length,1);
   await vm.runInContext('complete({count:5})',ctx);
   assert(vm.runInContext('Boolean(inFlight)',ctx));

@@ -8,7 +8,7 @@ async function request(body, auth) {
   const response = await fetch(origin + '/api/figma', {method:'POST',headers:{'Content-Type':'application/json',Origin:origin,...(auth?{Authorization:'Bearer '+auth}:{})},body:JSON.stringify(body)});
   const result = await response.json(); assert.equal(response.status,200,JSON.stringify(result)); return result;
 }
-for (const path of ['/','/generate','/blog','/research']) {
+for (const path of ['/','/generate']) {
   const response = await fetch(origin + path); assert.equal(response.status,200);
   assert.match(await response.text(), /Figma에서 제작/);
   assert.match(response.headers.get('content-security-policy'), /script-src 'self'/);

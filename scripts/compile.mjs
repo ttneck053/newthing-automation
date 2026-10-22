@@ -9,6 +9,6 @@ for (const [name, file, binary] of [
   ['font', 'web/assets/pretendard.woff2', true], ['city', 'web/assets/city.jpg', true], ['markets', 'web/assets/markets.jpg', true], ['desk', 'web/assets/desk.jpg', true]
 ]) { const data = await readFile(resolve(root, file)); assets[name] = data.toString(binary ? 'base64' : 'utf8'); }
 const relay = (await readFile(resolve(root, 'worker/figma-relay.mjs'), 'utf8')).replaceAll('export function ', 'function ').replaceAll('export async function ', 'async function ');
-const server = relay + '\n' + (await readFile(resolve(root, 'worker/server.mjs'), 'utf8')).replace("import { createFigmaRelay, createD1RelayStore } from './figma-relay.mjs';", '');
+const server = relay + '\n' + (await readFile(resolve(root, 'worker/server.mjs'), 'utf8')).replace("import { createFigmaRelay, createD1RelayStore, cleanFigmaRelay } from './figma-relay.mjs';", '');
 await writeFile(resolve(root, 'worker/index.js'), `${server}\nconst SITE_ASSETS = ${JSON.stringify(assets)};\n`);
 console.log('Compiled application, images, and Korean font into Worker');

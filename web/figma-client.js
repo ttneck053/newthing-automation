@@ -22,7 +22,7 @@ function axSha256(bytes) {
   }
   return h.map(v=>v.toString(16).padStart(8,'0')).join('');
 }
-globalThis.AXFigmaClient = {
+globalThis.FolioFigmaClient = {
   token: () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join(''),
   async digest(text) { const bytes = new TextEncoder().encode(text); return crypto.subtle ? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('') : axSha256(bytes); },
   async request(connection, data) {

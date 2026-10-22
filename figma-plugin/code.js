@@ -15,12 +15,12 @@ function validatePaint(paint) {
   }
 }
 function parseBundle(raw) {
-  check(typeof raw === 'string' && raw.length <= MAX_FILE_SIZE, '48MB 이하의 AX Figma 파일을 선택해 주세요.');
+  check(typeof raw === 'string' && raw.length <= MAX_FILE_SIZE, '48MB 이하의 뉴띵 카드뉴스 Figma 파일을 선택해 주세요.');
   let data; try { data = JSON.parse(raw); } catch { throw new Error('JSON 파일을 읽을 수 없어요. 웹앱에서 Figma 파일을 다시 저장해 주세요.'); }
-  check(data && data.format === 'ax-contents-figma' && data.version === 1, '지원하는 AX Figma 파일이 아니에요. 웹앱에서 다시 내보내 주세요.');
+  check(data && data.format === 'folio-figma' && data.version === 1, '지원하는 뉴띵 카드뉴스 Figma 파일이 아니에요. 웹앱에서 다시 내보내 주세요.');
   check(typeof data.title === 'string' && data.title.length <= 500);
-  check(['awesome', 'economic', 'won', 'youtube'].includes(data.channel));
-  check(Array.isArray(data.cards) && data.cards.length === (data.channel === 'youtube' ? 1 : 5));
+  check(['editorial', 'contrast', 'brief'].includes(data.channel));
+  check(Array.isArray(data.cards) && data.cards.length === 5);
   check(Array.isArray(data.assets) && data.assets.length <= 5);
   const assets = new Set();
   for (const asset of data.assets) {
@@ -32,7 +32,7 @@ function parseBundle(raw) {
   }
   for (const card of data.cards) {
     check(typeof card.name === 'string' && card.name.length <= 100);
-    check(card.width === (data.channel === 'youtube' ? 1920 : 1080) && card.height === (data.channel === 'youtube' ? 1080 : 1350));
+    check(card.width === 1080 && card.height === 1350);
     check(Array.isArray(card.nodes) && card.nodes.length > 0 && card.nodes.length <= 150);
     for (const node of card.nodes) {
       check(node && ['text', 'rect', 'ellipse', 'polygon', 'image'].includes(node.type));
@@ -143,11 +143,11 @@ async function importBundle(api, data, arrangement = 'row') {
   let root;
   try {
     root = api.createFrame(); page.appendChild(root);
-    root.name = `AX · ${data.title || '카드뉴스'}${data.sample ? ' · 샘플' : ''}`;
+    root.name = `뉴띵 카드뉴스 자동화 · ${data.title || '카드뉴스'}${data.sample ? ' · 샘플' : ''}`;
     root.fills = []; root.clipsContent = false;
     root.resize(columns * width + (columns - 1) * gap, Math.ceil(data.cards.length / columns) * (height + gap) - gap);
     root.x = Math.round(api.viewport.center.x - root.width / 2); root.y = Math.round(api.viewport.center.y - root.height / 2);
-    root.setPluginData('axFormat', '1');
+    root.setPluginData('folioFormat', '1');
     for (let i = 0; i < data.cards.length; i++) {
       const card = data.cards[i], frame = api.createFrame(); root.appendChild(frame);
       frame.name = card.name; frame.resize(card.width, card.height); frame.fills = []; frame.clipsContent = true;
@@ -170,7 +170,7 @@ if (typeof figma !== 'undefined') {
   let activeRequestId = '';
   const completed = new Map();
   let studioOrigin = '';
-  const storageKey = () => 'ax-figma:' + studioOrigin + ':' + (figma.currentUser?.id || '');
+  const storageKey = () => 'folio-figma:' + studioOrigin + ':' + (figma.currentUser?.id || '');
   async function sendContext() {
     const user = figma.currentUser;
     const saved = await figma.clientStorage.getAsync(storageKey()) || {};
