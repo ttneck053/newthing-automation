@@ -21,7 +21,7 @@ const sampleContent = {
   phrase: 'Follow the money', meaning: '돈의 흐름을 따라가다.\n경제 뉴스 속 변화를 읽는 첫걸음이에요.', cta: '오늘의 돈 공부, 저장하고\n다음 이야기에서 또 만나요.', hashtags: ['#금리공부', '#경제상식', '#돈의흐름'],
 };
 const makeCards = () => ['hook', 'body1', 'body2', 'expression', 'cta'].map((kind, i) => ({ kind, image: '', pos: 50, color1: '#ffffff', color2: '#ffffff', size1: 110, size2: 110, highlight1: false, highlight2: false, align: 'center', id: i }));
-let state = { content: null, cards: makeCards(), palette: 'white', article: null, sample: false, model: 'gpt-5.4-mini', input: '' };
+let state = { content: null, cards: makeCards(), palette: 'white', article: null, sample: false, sampleCollapsed: false, model: 'gpt-5.4-mini', input: '' };
 try {
   const saved = JSON.parse(readStored(STORAGE, '-contents-studio-v1'));
   if (saved?.version === 1 && saved.state && Array.isArray(saved.state.cards) && saved.state.cards.length === 5 && saved.state.cards.every(c => typeof c.image === 'string')) state = { ...state, ...saved.state };
@@ -102,8 +102,12 @@ function syncHeader() {
   source.hidden = !/^https?:\/\//.test(url || ''); source.href = source.hidden ? '#' : url;
   $('#download-zip').disabled = !state.content;
   updateFigmaStatus();
-  $('#cards-section').hidden = !state.content;
-  document.body.classList.toggle('has-content', Boolean(state.content));
+  const visible = Boolean(state.content) && !(state.sample && state.sampleCollapsed);
+  $('#cards-section').hidden = !visible;
+  document.body.classList.toggle('has-content', visible);
+  $('#sample').textContent = state.sample && visible ? '샘플 접기' : '샘플 보기';
+  $('#sample').setAttribute('aria-expanded', String(state.sample && visible));
+  $('#collapse-sample').hidden = !state.sample;
   $('#start-blank').textContent = state.content ? '직접 편집' : '직접 작성';
   $$('.swatch').forEach(el => { const active = el.dataset.palette === state.palette; el.classList.toggle('active', active); el.setAttribute('aria-pressed', active); });
 }
@@ -254,13 +258,23 @@ async function renderOne(i) {
 }
 async function renderAll() { syncHeader(); await Promise.all(state.cards.map((_, i) => renderOne(i))); }
 function adopt(content, article, sample = false) {
-  state.content = content; state.article = article; state.sample = sample;
+  state.content = content; state.article = article; state.sample = sample; state.sampleCollapsed = false;
   const images = sample ? ['/media/city.jpg', '/media/markets.jpg', '/media/desk.jpg', '/media/city.jpg', '/media/desk.jpg'] : article.images || [];
   state.cards = makeCards().map((c, i) => ({ ...c, image: images.length ? (sample ? images[i] : '/api/image?url=' + encodeURIComponent(images[i % images.length])) : '' }));
   syncFields(); selectCard(0); syncHeader(); renderAll(); persist();
 }
+function setSampleCollapsed(collapsed) {
+  state.sampleCollapsed = collapsed;
+  syncHeader(); persist();
+  if (collapsed) {
+    $('#more-options').open = false;
+    $('#sample').focus({ preventScroll: true });
+    $('#sample').scrollIntoView({ block: 'nearest' });
+  } else $('#cards-section').scrollIntoView({ block: 'start' });
+}
 function loadSample() {
   if (busy) return;
+  if (state.sample && state.content) { setSampleCollapsed(!state.sampleCollapsed); return; }
   state.input = `${sampleContent.title}\n\n※ 기능 확인용 가상 기사입니다.\n\n${sampleContent.body1}\n\n${sampleContent.body2}`;
   $('#article-input').value = state.input; updateInput();
   adopt(structuredClone(sampleContent), { title: sampleContent.title, text: state.input, url: '', images: [] }, true);
@@ -443,6 +457,7 @@ $('#card-tabs').addEventListener('keydown', event => {
 $('#start-blank').addEventListener('click', () => {
   if (busy) return;
   if (!state.content) adopt({ title: '직접 만든 카드뉴스', hook: '', body1: '', body2: '', phrase: '', meaning: '', cta: '', hashtags: ['', '', ''] }, { title: '직접 만든 카드뉴스', images: [] });
+  if (state.sampleCollapsed) setSampleCollapsed(false);
   $('#cards-section').scrollIntoView({ block: 'start' }); $(`[data-card="${selectedCard}"] textarea`).focus({ preventScroll: true });
 });
 document.addEventListener('click', event => { if (!event.target.closest('#more-options')) $('#more-options').open = false; });
@@ -450,6 +465,7 @@ $('#more-options').addEventListener('keydown', event => { if (event.key === 'Esc
 $('#article-input').addEventListener('input', () => { state.input = $('#article-input').value; updateInput(); persist(); });
 $('#article-input').addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); generateContent(); } });
 $('#sample').addEventListener('click', loadSample); $('#generate').addEventListener('click', generateContent);
+$('#collapse-sample').addEventListener('click', () => setSampleCollapsed(true));
 $('#cancel-generate').addEventListener('click', () => controller?.abort('cancel'));
 $('#settings').addEventListener('click', () => openSettings());
 $$('[data-close]').forEach(b => b.addEventListener('click', () => $('#' + b.dataset.close).close()));
